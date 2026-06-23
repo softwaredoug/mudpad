@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Model Context Protocol (MCP) server definitions
+  "mcp": {
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--browser-url",
+        "http://127.0.0.1:9222"
+      ],
+      "enabled": true,
+      "timeout": 10000
+    }
+  }
+}

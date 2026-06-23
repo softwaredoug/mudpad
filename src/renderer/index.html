@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor w/ LLM Feedback</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="toolbar">
+        <div class="toolbar-left">
+          <button id="open-button">Open</button>
+          <button id="save-button">Save</button>
+          <button id="analyze-button">Analyze</button>
+        </div>
+        <div class="toolbar-right">
+          <span id="file-path" class="file-path">No file opened</span>
+          <span id="status" class="status"></span>
+        </div>
+      </header>
+      <div class="content">
+        <div id="editor" class="editor"></div>
+        <aside id="issues-panel" class="issues-panel">
+          <div class="issues-header">Issues</div>
+          <div id="issues-list" class="issues-list"></div>
+        </aside>
+      </div>
+      <footer class="legend">
+        <span class="legend-item"><span class="legend-swatch spell"></span>Spell</span>
+        <span class="legend-item"><span class="legend-swatch grammar"></span>Grammar</span>
+        <span class="legend-item"><span class="legend-swatch llm"></span>LLM</span>
+      </footer>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
