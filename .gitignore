@@ -3,3 +3,4 @@ dist/
 .languagetool/
 resources/languagetool/
 *.dmg
+.DS_Store
