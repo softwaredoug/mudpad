@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
+import { spawn } from "child_process";
+import { resolveLanguageToolJar } from "./languagetool.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +11,37 @@ const __dirname = path.dirname(__filename);
 const debugPort = process.env.REMOTE_DEBUGGING_PORT ?? "9222";
 app.commandLine.appendSwitch("remote-debugging-port", debugPort);
 console.log(`Remote debugging enabled on port ${debugPort}`);
+
+const languageToolPort = process.env.LANGUAGETOOL_PORT ?? "8010";
+let languageToolProcess = null;
+
+async function startLanguageTool() {
+  if (process.env.DISABLE_LANGUAGETOOL === "1") {
+    return;
+  }
+
+  const cacheDir = path.join(app.getPath("userData"), "languagetool");
+  const bundledDir = path.join(process.resourcesPath, "languagetool");
+
+  try {
+    const jarPath = await resolveLanguageToolJar({ cacheDir, bundledDir });
+    const args = ["-jar", jarPath, "--port", languageToolPort];
+    languageToolProcess = spawn("java", args, { stdio: "inherit" });
+
+    languageToolProcess.on("error", (error) => {
+      console.error(`LanguageTool failed to start: ${error.message}`);
+    });
+
+    languageToolProcess.on("exit", (code) => {
+      languageToolProcess = null;
+      if (code && code !== 0) {
+        console.error(`LanguageTool exited with code ${code}`);
+      }
+    });
+  } catch (error) {
+    console.error(`Failed to start LanguageTool: ${error.message}`);
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -31,6 +64,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  startLanguageTool();
   createWindow();
 
   app.on("activate", () => {
@@ -43,6 +77,12 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
+  }
+});
+
+app.on("before-quit", () => {
+  if (languageToolProcess) {
+    languageToolProcess.kill();
   }
 });
 
@@ -88,7 +128,7 @@ ipcMain.handle("save-file", async (_event, payload) => {
 });
 
 ipcMain.handle("check-grammar", async (_event, text) => {
-  const endpoint = "http://localhost:8010/v2/check";
+  const endpoint = `http://localhost:${languageToolPort}/v2/check`;
 
   try {
     const body = new URLSearchParams({

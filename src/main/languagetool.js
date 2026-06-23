@@ -1,0 +1,124 @@
+import path from "path";
+import fs from "fs/promises";
+import { createWriteStream } from "fs";
+import https from "https";
+import AdmZip from "adm-zip";
+
+const DEFAULT_DOWNLOAD_URL =
+  process.env.LANGUAGETOOL_DOWNLOAD_URL ??
+  "https://languagetool.org/download/LanguageTool-stable.zip";
+
+async function exists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function findJarInDir(dir) {
+  if (!dir || !(await exists(dir))) {
+    return null;
+  }
+
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = await findJarInDir(fullPath);
+      if (found) {
+        return found;
+      }
+      continue;
+    }
+    if (entry.isFile() && entry.name === "languagetool-server.jar") {
+      return fullPath;
+    }
+  }
+  return null;
+}
+
+function downloadFile(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
+        const redirect = response.headers.location;
+        if (redirect) {
+          response.resume();
+          resolve(downloadFile(redirect, destPath));
+          return;
+        }
+      }
+
+      if (!response.statusCode || response.statusCode >= 400) {
+        response.resume();
+        reject(new Error(`Download failed (${response.statusCode})`));
+        return;
+      }
+
+      const fileStream = createWriteStream(destPath);
+      response.pipe(fileStream);
+      fileStream.on("finish", () => fileStream.close(resolve));
+      fileStream.on("error", reject);
+    });
+
+    request.on("error", reject);
+  });
+}
+
+async function ensureDownloaded({ cacheDir, downloadUrl }) {
+  await fs.mkdir(cacheDir, { recursive: true });
+  const zipPath = path.join(cacheDir, "LanguageTool-stable.zip");
+
+  if (!(await exists(zipPath))) {
+    console.log("Downloading LanguageTool...");
+    await downloadFile(downloadUrl, zipPath);
+  }
+
+  const zip = new AdmZip(zipPath);
+  zip.extractAllTo(cacheDir, true);
+
+  const jarPath = await findJarInDir(cacheDir);
+  if (!jarPath) {
+    throw new Error("Unable to locate languagetool-server.jar after download.");
+  }
+
+  return jarPath;
+}
+
+export async function resolveLanguageToolJar({
+  cacheDir,
+  bundledDir,
+  downloadUrl = DEFAULT_DOWNLOAD_URL
+} = {}) {
+  const jarPath = process.env.LANGUAGETOOL_JAR;
+  const homeDir = process.env.LANGUAGETOOL_HOME;
+
+  if (jarPath && (await exists(jarPath))) {
+    return jarPath;
+  }
+
+  if (homeDir) {
+    const candidate = path.join(homeDir, "languagetool-server.jar");
+    if (await exists(candidate)) {
+      return candidate;
+    }
+  }
+
+  const bundledJar = await findJarInDir(bundledDir);
+  if (bundledJar) {
+    return bundledJar;
+  }
+
+  const cachedJar = await findJarInDir(cacheDir);
+  if (cachedJar) {
+    return cachedJar;
+  }
+
+  if (!cacheDir) {
+    throw new Error("No cache directory available for LanguageTool download.");
+  }
+
+  return ensureDownloaded({ cacheDir, downloadUrl });
+}
