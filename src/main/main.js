@@ -303,6 +303,40 @@ ipcMain.handle("save-and-commit", async (_event, payload) => {
   }
 });
 
+ipcMain.handle("get-git-sync-status", async (_event, directory) => {
+  if (!directory) {
+    return { available: false };
+  }
+
+  return getGitStatus(directory, { fetch: true });
+});
+
+ipcMain.handle("sync-with-origin", async (_event, directory) => {
+  if (!directory) {
+    return { error: "No directory selected." };
+  }
+
+  const status = await getGitStatus(directory, { fetch: true });
+  if (!status.available) {
+    return { error: "No git repository found." };
+  }
+  if (!status.upstream) {
+    return { error: "No upstream configured for this branch." };
+  }
+
+  try {
+    if (status.behind > 0) {
+      await runGit(["pull", "--rebase"], status.repoRoot);
+    }
+    if (status.ahead > 0) {
+      await runGit(["push"], status.repoRoot);
+    }
+    return getGitStatus(status.repoRoot, { fetch: true });
+  } catch (error) {
+    return { error: error?.stderr || error?.message || "Sync failed." };
+  }
+});
+
 async function resolveRepoRoot(startDir) {
   try {
     const result = await runGit(["rev-parse", "--show-toplevel"], startDir);
@@ -314,6 +348,77 @@ async function resolveRepoRoot(startDir) {
 
 async function runGit(args, cwd) {
   return execFileAsync("git", args, { cwd });
+}
+
+async function getGitStatus(directory, { fetch = true } = {}) {
+  const repoRoot = await resolveRepoRoot(directory);
+  if (!repoRoot) {
+    return { available: false };
+  }
+
+  let fetchError = null;
+  if (fetch) {
+    try {
+      await runGit(["fetch", "--prune"], repoRoot);
+    } catch (error) {
+      fetchError = error?.stderr || error?.message || "Fetch failed";
+    }
+  }
+
+  let branch = "";
+  let upstream = "";
+  let ahead = 0;
+  let behind = 0;
+  let dirty = false;
+  let statusSummary = "";
+
+  try {
+    branch = (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], repoRoot)).stdout.trim();
+  } catch (error) {
+    branch = "";
+  }
+
+  try {
+    upstream = (
+      await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], repoRoot)
+    ).stdout.trim();
+  } catch (error) {
+    upstream = "";
+  }
+
+  if (upstream) {
+    try {
+      const counts = (
+        await runGit(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], repoRoot)
+      ).stdout.trim();
+      const [aheadCount, behindCount] = counts.split(/\s+/).map((value) => Number(value));
+      ahead = Number.isFinite(aheadCount) ? aheadCount : 0;
+      behind = Number.isFinite(behindCount) ? behindCount : 0;
+    } catch (error) {
+      ahead = 0;
+      behind = 0;
+    }
+  }
+
+  try {
+    dirty = (await runGit(["status", "--porcelain"], repoRoot)).stdout.trim().length > 0;
+    statusSummary = (await runGit(["status", "-sb"], repoRoot)).stdout.trim();
+  } catch (error) {
+    dirty = false;
+    statusSummary = "";
+  }
+
+  return {
+    available: true,
+    repoRoot,
+    branch,
+    upstream,
+    ahead,
+    behind,
+    dirty,
+    statusSummary,
+    fetchError
+  };
 }
 
 ipcMain.handle("check-grammar", async (_event, text) => {

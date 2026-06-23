@@ -19,6 +19,15 @@ const commitDetailsInput = document.getElementById("commit-details");
 const commitCancelButton = document.getElementById("commit-cancel");
 const commitConfirmButton = document.getElementById("commit-confirm");
 const commitErrorLabel = document.getElementById("commit-error");
+const repoStatusButton = document.getElementById("repo-status");
+const repoStatusDot = document.getElementById("repo-status-dot");
+const repoStatusLabel = document.getElementById("repo-status-label");
+const repoModal = document.getElementById("repo-modal");
+const repoStatusSummary = document.getElementById("repo-status-summary");
+const repoStatusDetails = document.getElementById("repo-status-details");
+const repoStatusError = document.getElementById("repo-status-error");
+const repoCloseButton = document.getElementById("repo-close");
+const repoSyncButton = document.getElementById("repo-sync");
 
 let filePath = null;
 let activeDirectory = null;
@@ -29,6 +38,7 @@ let issuesByType = {
   llm: []
 };
 let debounceHandle = null;
+let repoStatus = null;
 
 const editor = createEditor({
   parent: document.getElementById("editor"),
@@ -67,6 +77,29 @@ function setDirectoryError(message) {
 
 function setCommitError(message) {
   commitErrorLabel.textContent = message ?? "";
+}
+
+function setRepoStatus(nextStatus) {
+  repoStatus = nextStatus;
+  if (!repoStatus?.available) {
+    repoStatusButton.classList.add("hidden");
+    return;
+  }
+
+  repoStatusButton.classList.remove("hidden");
+  const isSynced = repoStatus.upstream && repoStatus.ahead === 0 && repoStatus.behind === 0;
+  repoStatusDot.classList.toggle("synced", isSynced);
+  repoStatusDot.classList.toggle("unsynced", !isSynced);
+  repoStatusLabel.textContent = isSynced ? "Synced" : "Out of sync";
+}
+
+async function refreshRepoStatus() {
+  if (!activeDirectory) {
+    setRepoStatus(null);
+    return;
+  }
+  const result = await window.api.getGitSyncStatus(activeDirectory);
+  setRepoStatus(result);
 }
 
 function handleEditorChange() {
@@ -195,11 +228,13 @@ async function refreshFileList() {
   if (!activeDirectory) {
     filesInDirectory = [];
     renderFileList();
+    setRepoStatus(null);
     return;
   }
   const result = await window.api.listMarkdownFiles(activeDirectory);
   filesInDirectory = result?.files ?? [];
   renderFileList();
+  await refreshRepoStatus();
 }
 
 async function initializeDirectory() {
@@ -327,11 +362,46 @@ commitConfirmButton.addEventListener("click", async () => {
   closeCommitModal();
   setStatus("Committed");
   setTimeout(() => setStatus(""), 1500);
+  await refreshRepoStatus();
 });
 
 commitModal.addEventListener("click", (event) => {
   if (event.target.classList.contains("modal-backdrop")) {
     closeCommitModal();
+  }
+});
+
+repoStatusButton.addEventListener("click", () => {
+  if (!repoStatus?.available) {
+    return;
+  }
+  openRepoModal();
+});
+
+repoCloseButton.addEventListener("click", () => closeRepoModal());
+repoSyncButton.addEventListener("click", async () => {
+  if (!repoStatus?.available) {
+    return;
+  }
+  repoStatusError.textContent = "";
+  repoSyncButton.disabled = true;
+  repoSyncButton.textContent = "Syncing...";
+
+  const result = await window.api.syncWithOrigin(activeDirectory);
+  repoSyncButton.disabled = false;
+  repoSyncButton.textContent = "Sync with origin";
+
+  if (result?.error) {
+    repoStatusError.textContent = result.error;
+    return;
+  }
+  setRepoStatus(result);
+  renderRepoStatusDetails();
+});
+
+repoModal.addEventListener("click", (event) => {
+  if (event.target.classList.contains("modal-backdrop")) {
+    closeRepoModal();
   }
 });
 
@@ -350,6 +420,46 @@ function closeCommitModal() {
   setCommitError("");
 }
 
+function openRepoModal() {
+  renderRepoStatusDetails();
+  repoModal.classList.remove("hidden");
+  repoModal.setAttribute("aria-hidden", "false");
+}
+
+function closeRepoModal() {
+  repoModal.classList.add("hidden");
+  repoModal.setAttribute("aria-hidden", "true");
+  repoStatusError.textContent = "";
+}
+
+function renderRepoStatusDetails() {
+  if (!repoStatus?.available) {
+    repoStatusSummary.textContent = "No git repository detected.";
+    repoStatusDetails.textContent = "";
+    repoSyncButton.disabled = true;
+    return;
+  }
+
+  const statusLine = repoStatus.statusSummary || "";
+  const upstreamText = repoStatus.upstream || "No upstream configured";
+  const syncLine = repoStatus.upstream
+    ? `Ahead ${repoStatus.ahead}, behind ${repoStatus.behind}`
+    : "Upstream not set";
+  const cleanLine = repoStatus.dirty ? "Working tree: dirty" : "Working tree: clean";
+  const fetchLine = repoStatus.fetchError ? `Fetch: ${repoStatus.fetchError}` : "Fetch: ok";
+
+  repoStatusSummary.textContent = statusLine;
+  repoStatusDetails.textContent = [
+    `Branch: ${repoStatus.branch || "unknown"}`,
+    `Upstream: ${upstreamText}`,
+    syncLine,
+    cleanLine,
+    fetchLine
+  ].join("\n");
+
+  repoSyncButton.disabled = !repoStatus.upstream;
+}
+
 window.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
@@ -364,6 +474,9 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && !commitModal.classList.contains("hidden")) {
     closeCommitModal();
+  }
+  if (event.key === "Escape" && !repoModal.classList.contains("hidden")) {
+    closeRepoModal();
   }
 });
 

@@ -41,9 +41,15 @@
         </aside>
       </div>
       <footer class="legend">
-        <span class="legend-item"><span class="legend-swatch spell"></span>Spell</span>
-        <span class="legend-item"><span class="legend-swatch grammar"></span>Grammar</span>
-        <span class="legend-item"><span class="legend-swatch llm"></span>LLM</span>
+        <div class="legend-items">
+          <span class="legend-item"><span class="legend-swatch spell"></span>Spell</span>
+          <span class="legend-item"><span class="legend-swatch grammar"></span>Grammar</span>
+          <span class="legend-item"><span class="legend-swatch llm"></span>LLM</span>
+        </div>
+        <button id="repo-status" class="repo-status hidden" type="button">
+          <span id="repo-status-dot" class="repo-status-dot"></span>
+          <span id="repo-status-label" class="repo-status-label">Repo</span>
+        </button>
       </footer>
     </div>
     <div id="commit-modal" class="modal hidden" aria-hidden="true">
@@ -62,6 +68,23 @@
         <div class="modal-actions">
           <button id="commit-cancel" class="button-secondary" type="button">Cancel</button>
           <button id="commit-confirm" class="button-primary" type="button">Commit</button>
+        </div>
+      </div>
+    </div>
+    <div id="repo-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="repo-title">
+        <div class="modal-header">
+          <h2 id="repo-title">Repository status</h2>
+        </div>
+        <div class="modal-body">
+          <div id="repo-status-summary" class="repo-status-summary"></div>
+          <div id="repo-status-details" class="repo-status-details"></div>
+          <div id="repo-status-error" class="modal-error"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="repo-close" class="button-secondary" type="button">Close</button>
+          <button id="repo-sync" class="button-primary" type="button">Sync with origin</button>
         </div>
       </div>
     </div>

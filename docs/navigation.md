@@ -24,6 +24,12 @@ with that message.
 It should ask for a short message and a detailed message. At least the short message should be required. The detailed message can be optional.
 
 
+## Sync state with 'origin'
+
+When the directory is associated with a git repo, the bottom right should show a green light if the repo is in sync with the origin
+and a red warning if the repo is not in sync with the origin. Clicking on the light should show a dialog with the current status of the repo and allow for syncing with the origin.
+
+
 ## No save, open, etc buttons
 
 There's no explicit save, open buttons. Just the file sidebar and the ability to select the active working directory.
