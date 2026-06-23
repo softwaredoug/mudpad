@@ -12,7 +12,7 @@ const activeFileLabel = document.getElementById("active-file");
 const statusLabel = document.getElementById("status");
 const issuesList = document.getElementById("issues-list");
 const filesList = document.getElementById("files-list");
-const fileCountLabel = document.getElementById("file-count");
+const newFileButton = document.getElementById("new-file-button");
 const commitModal = document.getElementById("commit-modal");
 const commitSummaryInput = document.getElementById("commit-summary");
 const commitDetailsInput = document.getElementById("commit-details");
@@ -28,6 +28,15 @@ const repoStatusDetails = document.getElementById("repo-status-details");
 const repoStatusError = document.getElementById("repo-status-error");
 const repoCloseButton = document.getElementById("repo-close");
 const repoSyncButton = document.getElementById("repo-sync");
+const renameModal = document.getElementById("rename-modal");
+const renameInput = document.getElementById("rename-input");
+const renameGitFields = document.getElementById("rename-git-fields");
+const renameSummaryInput = document.getElementById("rename-summary");
+const renameDetailsInput = document.getElementById("rename-details");
+const renameCancelButton = document.getElementById("rename-cancel");
+const renameDeleteButton = document.getElementById("rename-delete");
+const renameConfirmButton = document.getElementById("rename-confirm");
+const renameErrorLabel = document.getElementById("rename-error");
 
 let filePath = null;
 let activeDirectory = null;
@@ -39,6 +48,11 @@ let issuesByType = {
 };
 let debounceHandle = null;
 let repoStatus = null;
+let renameTargetPath = null;
+let renameRequiresCommit = false;
+let renameSummaryAuto = false;
+let deleteSummaryAuto = false;
+let renameMode = "rename";
 
 const editor = createEditor({
   parent: document.getElementById("editor"),
@@ -79,6 +93,38 @@ function setCommitError(message) {
   commitErrorLabel.textContent = message ?? "";
 }
 
+function extractFrontmatter(text) {
+  if (!text || !(text.startsWith("---\n") || text.startsWith("---\r\n"))) {
+    return { body: text ?? "", offset: 0 };
+  }
+
+  const match = text.match(/^---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)\r?\n/);
+  if (!match) {
+    return { body: text ?? "", offset: 0 };
+  }
+
+  const offset = match[0].length;
+  return { body: text.slice(offset), offset };
+}
+
+function offsetIssues(issues, offset) {
+  if (!offset) {
+    return issues ?? [];
+  }
+  return (issues ?? []).map((issue) => {
+    if (!issue?.range) {
+      return issue;
+    }
+    return {
+      ...issue,
+      range: {
+        start: issue.range.start + offset,
+        end: issue.range.end + offset
+      }
+    };
+  });
+}
+
 function setRepoStatus(nextStatus) {
   repoStatus = nextStatus;
   if (!repoStatus?.available) {
@@ -114,10 +160,11 @@ function scheduleChecks() {
 
   debounceHandle = setTimeout(async () => {
     const text = editor.getText();
-    issuesByType.spell = checkSpelling(text);
+    const { body, offset } = extractFrontmatter(text);
+    issuesByType.spell = offsetIssues(checkSpelling(body), offset);
 
-    const grammarResult = await checkGrammar(text);
-    issuesByType.grammar = grammarResult.issues;
+    const grammarResult = await checkGrammar(body);
+    issuesByType.grammar = offsetIssues(grammarResult.issues, offset);
     if (grammarResult.error) {
       setStatus(grammarResult.error);
     } else {
@@ -189,7 +236,6 @@ function renderIssues(issues) {
 
 function renderFileList() {
   filesList.innerHTML = "";
-  fileCountLabel.textContent = filesInDirectory.length ? `${filesInDirectory.length}` : "";
 
   if (!filesInDirectory.length) {
     const empty = document.createElement("div");
@@ -206,7 +252,7 @@ function renderFileList() {
     item.className = "file-item";
     item.textContent = file.relativePath;
     item.dataset.path = file.path;
-    item.addEventListener("dblclick", () => openFile(file.path));
+    item.addEventListener("dblclick", () => handleFileDoubleClick(file.path));
     filesList.appendChild(item);
   });
 
@@ -282,6 +328,14 @@ async function openFile(path) {
   scheduleChecks();
 }
 
+async function handleFileDoubleClick(path) {
+  if (path === filePath) {
+    openRenameModal(path);
+    return;
+  }
+  await openFile(path);
+}
+
 function applyIssue(issue) {
   const replacement = issue.suggestions?.[0] ?? "";
   editor.replaceRange(issue.range.start, issue.range.end, replacement);
@@ -303,6 +357,22 @@ selectDirectoryButton.addEventListener("click", async () => {
   await refreshFileList();
 });
 
+newFileButton.addEventListener("click", async () => {
+  if (!activeDirectory) {
+    setStatus("Select a folder to add a file.");
+    return;
+  }
+  const result = await window.api.createNewFile(activeDirectory);
+  if (result?.error) {
+    setStatus(result.error);
+    return;
+  }
+  if (result?.path) {
+    await openFile(result.path);
+  }
+  await refreshFileList();
+});
+
 activeDirectoryInput.addEventListener("keydown", async (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -317,8 +387,9 @@ activeDirectoryInput.addEventListener("blur", async () => {
 analyzeButton.addEventListener("click", async () => {
   setStatus("Analyzing...");
   const text = editor.getText();
-  const result = await analyzeWithLlm(text);
-  issuesByType.llm = result.issues;
+  const { body, offset } = extractFrontmatter(text);
+  const result = await analyzeWithLlm(body);
+  issuesByType.llm = offsetIssues(result.issues, offset);
 
   if (result.error) {
     setStatus(result.error);
@@ -405,6 +476,12 @@ repoModal.addEventListener("click", (event) => {
   }
 });
 
+renameModal.addEventListener("click", (event) => {
+  if (event.target.classList.contains("modal-backdrop")) {
+    closeRenameModal();
+  }
+});
+
 function openCommitModal() {
   commitModal.classList.remove("hidden");
   commitModal.setAttribute("aria-hidden", "false");
@@ -418,6 +495,60 @@ function closeCommitModal() {
   commitSummaryInput.value = "";
   commitDetailsInput.value = "";
   setCommitError("");
+}
+
+function openRenameModal(path) {
+  renameTargetPath = path;
+  renameMode = "rename";
+  renameRequiresCommit = Boolean(repoStatus?.available);
+  renameGitFields.classList.toggle("hidden", !renameRequiresCommit);
+  renameModal.classList.remove("hidden");
+  renameModal.setAttribute("aria-hidden", "false");
+  renameInput.value = path.split("/").pop() ?? "";
+  renameSummaryInput.value = renameRequiresCommit
+    ? buildRenameSummary(path, renameInput.value)
+    : "";
+  renameSummaryAuto = renameRequiresCommit;
+  deleteSummaryAuto = renameRequiresCommit;
+  renameDetailsInput.value = "";
+  setRenameError("");
+  renameInput.focus();
+  renameInput.select();
+}
+
+function closeRenameModal() {
+  renameModal.classList.add("hidden");
+  renameModal.setAttribute("aria-hidden", "true");
+  renameTargetPath = null;
+  renameRequiresCommit = false;
+  renameSummaryAuto = false;
+  deleteSummaryAuto = false;
+  renameMode = "rename";
+  setRenameError("");
+}
+
+function setRenameError(message) {
+  renameErrorLabel.textContent = message ?? "";
+}
+
+function buildRenameSummary(oldPath, newName) {
+  if (!oldPath || !newName) {
+    return "";
+  }
+  const baseDir = activeDirectory || "";
+  const oldLabel = baseDir ? oldPath.replace(`${baseDir}/`, "") : oldPath;
+  const newPath = baseDir ? `${baseDir}/${newName}` : newName;
+  const newLabel = baseDir ? newPath.replace(`${baseDir}/`, "") : newPath;
+  return `Moved file ${oldLabel} to ${newLabel}`;
+}
+
+function buildDeleteSummary(path) {
+  if (!path) {
+    return "";
+  }
+  const baseDir = activeDirectory || "";
+  const label = baseDir ? path.replace(`${baseDir}/`, "") : path;
+  return `Deleted file ${label}`;
 }
 
 function openRepoModal() {
@@ -478,6 +609,105 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !repoModal.classList.contains("hidden")) {
     closeRepoModal();
   }
+  if (event.key === "Escape" && !renameModal.classList.contains("hidden")) {
+    closeRenameModal();
+  }
+});
+
+renameCancelButton.addEventListener("click", () => closeRenameModal());
+renameConfirmButton.addEventListener("click", async () => {
+  renameMode = "rename";
+  if (!renameTargetPath) {
+    setRenameError("No file selected.");
+    return;
+  }
+  const newName = renameInput.value.trim();
+  if (!newName) {
+    setRenameError("New filename is required.");
+    return;
+  }
+  const summary = renameSummaryInput.value.trim();
+  const details = renameDetailsInput.value.trim();
+  if (renameRequiresCommit && !summary) {
+    setRenameError("Commit summary is required.");
+    return;
+  }
+
+  setRenameError("");
+  const result = await window.api.renameFile({
+    oldPath: renameTargetPath,
+    newName,
+    messageShort: summary,
+    messageLong: details
+  });
+
+  if (result?.error) {
+    setRenameError(result.error);
+    return;
+  }
+
+  closeRenameModal();
+  if (result?.path) {
+    await openFile(result.path);
+  }
+  await refreshFileList();
+  await refreshRepoStatus();
+});
+
+renameDeleteButton.addEventListener("click", async () => {
+  if (!renameTargetPath) {
+    setRenameError("No file selected.");
+    return;
+  }
+  if (!window.confirm("Delete this file?")) {
+    return;
+  }
+  renameMode = "delete";
+  if (renameRequiresCommit && deleteSummaryAuto) {
+    renameSummaryInput.value = buildDeleteSummary(renameTargetPath);
+  }
+  const summary = renameSummaryInput.value.trim();
+  const details = renameDetailsInput.value.trim();
+  if (renameRequiresCommit && !summary) {
+    setRenameError("Commit summary is required.");
+    return;
+  }
+
+  setRenameError("");
+  const result = await window.api.deleteFile({
+    filePath: renameTargetPath,
+    messageShort: summary,
+    messageLong: details
+  });
+
+  if (result?.error) {
+    setRenameError(result.error);
+    return;
+  }
+
+  closeRenameModal();
+  setFilePath(null);
+  editor.setText("");
+  await refreshFileList();
+  await refreshRepoStatus();
+});
+
+renameInput.addEventListener("input", () => {
+  if (!renameRequiresCommit) {
+    return;
+  }
+  if (!renameSummaryAuto) {
+    return;
+  }
+  renameSummaryInput.value = buildRenameSummary(renameTargetPath, renameInput.value.trim());
+});
+
+renameSummaryInput.addEventListener("input", () => {
+  if (!renameRequiresCommit) {
+    return;
+  }
+  renameSummaryAuto = false;
+  deleteSummaryAuto = false;
 });
 
 window.addEventListener("keydown", (event) => {

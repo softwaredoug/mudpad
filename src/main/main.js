@@ -269,6 +269,139 @@ ipcMain.handle("read-file", async (_event, filePath) => {
   return { path: filePath, content };
 });
 
+ipcMain.handle("create-new-file", async (_event, directory) => {
+  if (!directory) {
+    return { error: "No directory selected." };
+  }
+
+  const baseName = formatNewFileName(new Date());
+  let fileName = `${baseName}.md`;
+  let filePath = path.join(directory, fileName);
+  let counter = 1;
+
+  while (true) {
+    try {
+      await fs.access(filePath);
+      fileName = `${baseName}-(${counter}).md`;
+      filePath = path.join(directory, fileName);
+      counter += 1;
+    } catch (error) {
+      break;
+    }
+  }
+
+  const frontmatter = [
+    "---",
+    "layout: post",
+    "title: \"New blog article\"",
+    "description: \"A new blog by Doug\"",
+    "category: blog",
+    "draft: true",
+    "---",
+    ""
+  ].join("\n");
+
+  await fs.writeFile(filePath, frontmatter, "utf8");
+  const repoRoot = await resolveRepoRoot(directory);
+  if (repoRoot) {
+    const relativePath = path.relative(repoRoot, filePath);
+    if (!relativePath.startsWith("..")) {
+      await runGit(["add", relativePath], repoRoot);
+    }
+  }
+  return { path: filePath, content: frontmatter };
+});
+
+ipcMain.handle("rename-file", async (_event, payload) => {
+  const { oldPath, newName, messageShort, messageLong } = payload ?? {};
+  if (!oldPath) {
+    return { error: "No file selected." };
+  }
+  if (!newName || !newName.trim()) {
+    return { error: "New filename is required." };
+  }
+  if (newName.includes("/") || newName.includes("\\")) {
+    return { error: "Filename must not include path separators." };
+  }
+
+  const directory = path.dirname(oldPath);
+  const newPath = path.join(directory, newName.trim());
+
+  try {
+    await fs.access(newPath);
+    return { error: "A file with that name already exists." };
+  } catch (error) {
+    // continue
+  }
+
+  const repoRoot = await resolveRepoRoot(directory);
+  if (repoRoot) {
+    if (!messageShort || !messageShort.trim()) {
+      return { error: "Commit summary is required." };
+    }
+    const relativeOld = path.relative(repoRoot, oldPath);
+    const relativeNew = path.relative(repoRoot, newPath);
+    if (relativeOld.startsWith("..") || relativeNew.startsWith("..")) {
+      return { error: "File is outside the git repository." };
+    }
+    try {
+      await runGit(["mv", relativeOld, relativeNew], repoRoot);
+      const commitArgs = ["commit", "-m", messageShort.trim()];
+      if (messageLong && messageLong.trim()) {
+        commitArgs.push("-m", messageLong.trim());
+      }
+      await runGit(commitArgs, repoRoot);
+      return { path: newPath };
+    } catch (error) {
+      return { error: error?.stderr || error?.message || "Rename failed." };
+    }
+  }
+
+  try {
+    await fs.rename(oldPath, newPath);
+    return { path: newPath };
+  } catch (error) {
+    return { error: error?.message || "Rename failed." };
+  }
+});
+
+ipcMain.handle("delete-file", async (_event, payload) => {
+  const { filePath, messageShort, messageLong } = payload ?? {};
+  if (!filePath) {
+    return { error: "No file selected." };
+  }
+
+  const directory = path.dirname(filePath);
+  const repoRoot = await resolveRepoRoot(directory);
+  if (repoRoot) {
+    if (!messageShort || !messageShort.trim()) {
+      return { error: "Commit summary is required." };
+    }
+    const relativePath = path.relative(repoRoot, filePath);
+    if (relativePath.startsWith("..")) {
+      return { error: "File is outside the git repository." };
+    }
+    try {
+      await runGit(["rm", relativePath], repoRoot);
+      const commitArgs = ["commit", "-m", messageShort.trim()];
+      if (messageLong && messageLong.trim()) {
+        commitArgs.push("-m", messageLong.trim());
+      }
+      await runGit(commitArgs, repoRoot);
+      return { path: null };
+    } catch (error) {
+      return { error: error?.stderr || error?.message || "Delete failed." };
+    }
+  }
+
+  try {
+    await fs.unlink(filePath);
+    return { path: null };
+  } catch (error) {
+    return { error: error?.message || "Delete failed." };
+  }
+});
+
 ipcMain.handle("save-and-commit", async (_event, payload) => {
   const { path: filePath, content, messageShort, messageLong } = payload ?? {};
   if (!filePath) {
@@ -348,6 +481,14 @@ async function resolveRepoRoot(startDir) {
 
 async function runGit(args, cwd) {
   return execFileAsync("git", args, { cwd });
+}
+
+function formatNewFileName(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  return `${year}-${month}-${day}-new-file`;
 }
 
 async function getGitStatus(directory, { fetch = true } = {}) {

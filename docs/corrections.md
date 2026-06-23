@@ -14,3 +14,6 @@ Applying the suggestion will perform the suggested replacement
 
 Dismissing the suggestion will ignore this one suggestion permanently for this document.
 
+## Ignore frontmatter
+
+Do not correct yaml frontmatter. It is not part of the document content and should be ignored for corrections.
