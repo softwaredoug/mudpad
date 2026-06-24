@@ -57,6 +57,10 @@ notice draft: true, that's important as it shows not published
 
 Add this with git, if a git repo, with a git add command
 
+## New folder behavior
+
+When creating a new folder, we should give a dialog to enter the folder name, and create the folder in the current working directory.
+
 ## File rename behavior
 
 Double clicking on the selected file will allow the user to rename the file.
@@ -74,3 +78,4 @@ Within the double click dialog, there should be a delete button. This will delet
 Delete should perform a git rm operation if the file is in a git repo, and the user should be prompted to commit the change with a message.
 
 When this delete happens, there's a commit. But prepopulate the form with "Deleted file <path>"
+

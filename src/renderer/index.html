@@ -30,6 +30,7 @@
         <aside class="files-panel">
           <div class="files-header">
             <span>Files</span>
+            <button id="new-folder-button" class="new-folder-button" type="button" aria-label="New folder">📁</button>
             <button id="new-file-button" class="new-file-button" type="button">+</button>
           </div>
           <div id="files-list" class="files-list"></div>
@@ -131,6 +132,23 @@
         <div class="modal-actions">
           <button id="delete-cancel" class="button-secondary" type="button">Cancel</button>
           <button id="delete-confirm" class="button-primary" type="button">Confirm</button>
+        </div>
+      </div>
+    </div>
+    <div id="new-folder-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="new-folder-title">
+        <div class="modal-header">
+          <h2 id="new-folder-title">New folder</h2>
+        </div>
+        <div class="modal-body">
+          <label class="modal-label" for="new-folder-name">Folder name</label>
+          <input id="new-folder-name" class="modal-input" type="text" placeholder="folder-name" />
+          <div id="new-folder-error" class="modal-error"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="new-folder-cancel" class="button-secondary" type="button">Cancel</button>
+          <button id="new-folder-confirm" class="button-primary" type="button">Create</button>
         </div>
       </div>
     </div>

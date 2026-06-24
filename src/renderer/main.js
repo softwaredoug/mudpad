@@ -14,6 +14,7 @@ const statusLabel = document.getElementById("status");
 const issuesList = document.getElementById("issues-list");
 const filesList = document.getElementById("files-list");
 const newFileButton = document.getElementById("new-file-button");
+const newFolderButton = document.getElementById("new-folder-button");
 const commitModal = document.getElementById("commit-modal");
 const commitSummaryInput = document.getElementById("commit-summary");
 const commitDetailsInput = document.getElementById("commit-details");
@@ -46,6 +47,11 @@ const deleteDetailsInput = document.getElementById("delete-details");
 const deleteCancelButton = document.getElementById("delete-cancel");
 const deleteConfirmButton = document.getElementById("delete-confirm");
 const deleteErrorLabel = document.getElementById("delete-error");
+const newFolderModal = document.getElementById("new-folder-modal");
+const newFolderNameInput = document.getElementById("new-folder-name");
+const newFolderErrorLabel = document.getElementById("new-folder-error");
+const newFolderCancelButton = document.getElementById("new-folder-cancel");
+const newFolderConfirmButton = document.getElementById("new-folder-confirm");
 
 let filePath = null;
 let activeDirectory = null;
@@ -86,6 +92,10 @@ function setFilePath(path) {
     ? path.split("/").pop()
     : "No file selected";
   highlightActiveFile();
+  if (!isMarkdownFile(filePath)) {
+    issuesByType = { spell: [], grammar: [], llm: [] };
+    refreshIssues();
+  }
 }
 
 function setActiveDirectory(path) {
@@ -155,6 +165,12 @@ function handleEditorChange() {
 function scheduleChecks() {
   if (debounceHandle) {
     clearTimeout(debounceHandle);
+  }
+
+  if (!isMarkdownFile(filePath)) {
+    issuesByType = { spell: [], grammar: [], llm: [] };
+    refreshIssues();
+    return;
   }
 
   debounceHandle = setTimeout(async () => {
@@ -306,7 +322,7 @@ async function refreshFileList() {
     spellingExceptions = new Set();
     return;
   }
-  const result = await window.api.listMarkdownFiles(activeDirectory);
+  const result = await window.api.listTextFiles(activeDirectory);
   filesInDirectory = result?.files ?? [];
   renderFileList();
   await refreshSpellingExceptions();
@@ -434,6 +450,14 @@ newFileButton.addEventListener("click", async () => {
   await refreshFileList();
 });
 
+newFolderButton.addEventListener("click", () => {
+  if (!activeDirectory) {
+    setStatus("Select a folder to add a new folder.");
+    return;
+  }
+  openNewFolderModal();
+});
+
 activeDirectoryInput.addEventListener("keydown", async (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -446,6 +470,10 @@ activeDirectoryInput.addEventListener("blur", async () => {
 });
 
 analyzeButton.addEventListener("click", async () => {
+  if (!isMarkdownFile(filePath)) {
+    setStatus("Corrections are available only for markdown files.");
+    return;
+  }
   setStatus("Analyzing...");
   const text = editor.getText();
   const { body, offset } = extractFrontmatter(text);
@@ -462,6 +490,14 @@ analyzeButton.addEventListener("click", async () => {
 
   refreshIssues();
 });
+
+function isMarkdownFile(path) {
+  if (!path) {
+    return false;
+  }
+  const lower = path.toLowerCase();
+  return lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdx");
+}
 
 commitCancelButton.addEventListener("click", () => closeCommitModal());
 commitConfirmButton.addEventListener("click", async () => {
@@ -547,6 +583,12 @@ renameModal.addEventListener("click", (event) => {
 deleteModal.addEventListener("click", (event) => {
   if (event.target.classList.contains("modal-backdrop")) {
     closeDeleteModal();
+  }
+});
+
+newFolderModal.addEventListener("click", (event) => {
+  if (event.target.classList.contains("modal-backdrop")) {
+    closeNewFolderModal();
   }
 });
 
@@ -654,6 +696,25 @@ function closeDeleteModal() {
   setDeleteError("");
 }
 
+function openNewFolderModal() {
+  newFolderModal.classList.remove("hidden");
+  newFolderModal.setAttribute("aria-hidden", "false");
+  newFolderNameInput.value = "";
+  setNewFolderError("");
+  newFolderNameInput.focus();
+}
+
+function closeNewFolderModal() {
+  newFolderModal.classList.add("hidden");
+  newFolderModal.setAttribute("aria-hidden", "true");
+  newFolderNameInput.value = "";
+  setNewFolderError("");
+}
+
+function setNewFolderError(message) {
+  newFolderErrorLabel.textContent = message ?? "";
+}
+
 function setDeleteError(message) {
   deleteErrorLabel.textContent = message ?? "";
 }
@@ -709,6 +770,9 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && !deleteModal.classList.contains("hidden")) {
     closeDeleteModal();
+  }
+  if (event.key === "Escape" && !newFolderModal.classList.contains("hidden")) {
+    closeNewFolderModal();
   }
 });
 
@@ -776,6 +840,26 @@ renameSummaryInput.addEventListener("input", () => {
     return;
   }
   renameSummaryAuto = false;
+});
+
+newFolderCancelButton.addEventListener("click", () => closeNewFolderModal());
+newFolderConfirmButton.addEventListener("click", async () => {
+  if (!activeDirectory) {
+    setNewFolderError("Select a folder to create a subfolder.");
+    return;
+  }
+  const name = newFolderNameInput.value.trim();
+  if (!name) {
+    setNewFolderError("Folder name is required.");
+    return;
+  }
+  const result = await window.api.createFolder({ directory: activeDirectory, name });
+  if (result?.error) {
+    setNewFolderError(result.error);
+    return;
+  }
+  closeNewFolderModal();
+  await refreshFileList();
 });
 
 deleteCancelButton.addEventListener("click", () => closeDeleteModal());

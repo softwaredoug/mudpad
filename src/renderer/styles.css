@@ -129,6 +129,24 @@ body {
   background: #f3f4f6;
 }
 
+.new-folder-button {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid #d0d7de;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-folder-button:hover {
+  background: #f3f4f6;
+}
+
 .files-list {
   padding: 10px 8px;
   overflow: auto;

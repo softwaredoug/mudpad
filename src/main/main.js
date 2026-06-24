@@ -217,8 +217,8 @@ ipcMain.handle("validate-directory", async (_event, directory) => {
   }
 });
 
-ipcMain.handle("list-markdown-files", async (_event, directory) =>
-  fileOps.listMarkdownFiles(directory)
+ipcMain.handle("list-text-files", async (_event, directory) =>
+  fileOps.listTextFiles(directory)
 );
 
 ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePath));
@@ -226,6 +226,8 @@ ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePat
 ipcMain.handle("create-new-file", async (_event, directory) =>
   fileOps.createNewFile(directory)
 );
+
+ipcMain.handle("create-folder", async (_event, payload) => fileOps.createFolder(payload));
 
 ipcMain.handle("rename-file", async (_event, payload) => fileOps.renameFile(payload));
 

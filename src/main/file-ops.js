@@ -5,13 +5,54 @@ import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
-export async function listMarkdownFiles(directory) {
+export async function listTextFiles(directory) {
   if (!directory) {
     return { files: [] };
   }
 
   const rootDir = directory;
   const ignoredDirs = new Set([".git", "node_modules", "dist", "resources", ".languagetool"]);
+  const textExtensions = new Set([
+    ".md",
+    ".markdown",
+    ".mdx",
+    ".txt",
+    ".yml",
+    ".yaml",
+    ".json",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".py",
+    ".rb",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".swift",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".php",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".sql",
+    ".graphql",
+    ".gql",
+    ".xml",
+    ".html",
+    ".css",
+    ".scss",
+    ".less"
+  ]);
   const files = [];
 
   async function walk(currentDir) {
@@ -32,7 +73,7 @@ export async function listMarkdownFiles(directory) {
         continue;
       }
       const ext = path.extname(entry.name).toLowerCase();
-      if (ext === ".md" || ext === ".markdown") {
+      if (textExtensions.has(ext)) {
         files.push({
           path: fullPath,
           relativePath: path.relative(rootDir, fullPath)
@@ -113,6 +154,29 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
     }
   }
   return { path: filePath, content: frontmatter };
+}
+
+export async function createFolder({ directory, name }) {
+  if (!directory) {
+    return { error: "No directory selected." };
+  }
+  if (!name || !name.trim()) {
+    return { error: "Folder name is required." };
+  }
+  if (name.includes("/") || name.includes("\\")) {
+    return { error: "Folder name must not include path separators." };
+  }
+
+  const folderPath = path.join(directory, name.trim());
+  try {
+    await fs.mkdir(folderPath);
+    return { path: folderPath };
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      return { error: "Folder already exists." };
+    }
+    return { error: error?.message || "Failed to create folder." };
+  }
 }
 
 export async function saveAndCommit({ path: filePath, content, messageShort, messageLong }) {
