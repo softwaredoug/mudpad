@@ -240,7 +240,11 @@ export async function deleteFile({ filePath, messageShort, messageLong }) {
       await runGit(["rm", relativePath], repoRootResolved);
     } catch (error) {
       const message = error?.stderr || error?.message || "";
-      if (message.includes("changes staged in the index")) {
+      if (
+        message.includes("changes staged in the index") ||
+        message.includes("staged content different") ||
+        message.includes("local modifications")
+      ) {
         try {
           await runGit(["rm", "-f", relativePath], repoRootResolved);
         } catch (forceError) {
@@ -258,6 +262,11 @@ export async function deleteFile({ filePath, messageShort, messageLong }) {
       }
     }
 
+    const statusAfter = (await runGit(["status", "--porcelain"], repoRootResolved)).stdout.trim();
+    if (!statusAfter) {
+      return { path: null };
+    }
+
     try {
       const commitArgs = ["commit", "-m", messageShort.trim()];
       if (messageLong && messageLong.trim()) {
@@ -267,7 +276,7 @@ export async function deleteFile({ filePath, messageShort, messageLong }) {
       return { path: null };
     } catch (error) {
       const message = error?.stderr || error?.message || "Commit failed.";
-      if (message.includes("nothing to commit")) {
+      if (message.includes("nothing to commit") || message.includes("no changes added")) {
         return { path: null };
       }
       return { error: message };
