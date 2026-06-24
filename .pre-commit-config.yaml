@@ -3,6 +3,6 @@ repos:
     hooks:
       - id: unit-tests
         name: unit tests
-        entry: node --test tests/unit/markdown-mask.test.js tests/unit/file-ops.test.js
+        entry: node --test tests/unit/file-ops.test.js tests/unit/corrections.test.js
         language: system
         pass_filenames: false

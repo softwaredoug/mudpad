@@ -1,9 +1,5 @@
 import "./styles.css";
 import { createEditor } from "./editor.js";
-import { checkSpelling } from "./services/spell.js";
-import { checkGrammar } from "./services/grammar.js";
-import { analyzeWithLlm } from "./services/llm.js";
-import { extractFrontmatter, maskCodeBlocks, maskLinks } from "./utils/markdown.js";
 
 const selectDirectoryButton = document.getElementById("select-directory-button");
 const analyzeButton = document.getElementById("analyze-button");
@@ -70,6 +66,8 @@ let deleteTargetPath = null;
 let deleteRequiresCommit = false;
 let deleteSummaryAuto = false;
 let spellingExceptions = new Set();
+let activeGlobPattern = null;
+let activeDirectoryInputValue = null;
 
 const editor = createEditor({
   parent: document.getElementById("editor"),
@@ -100,10 +98,13 @@ function setFilePath(path) {
 
 function setActiveDirectory(path) {
   activeDirectory = path;
-  activeDirectoryInput.value = path ?? "";
+  activeDirectoryInput.value = activeDirectoryInputValue ?? path ?? "";
   setDirectoryError("");
   if (path) {
     window.localStorage.setItem("activeDirectory", path);
+    if (activeDirectoryInputValue) {
+      window.localStorage.setItem("activeDirectoryInput", activeDirectoryInputValue);
+    }
   }
 }
 
@@ -175,26 +176,15 @@ function scheduleChecks() {
 
   debounceHandle = setTimeout(async () => {
     const text = editor.getText();
-    const { body, offset } = extractFrontmatter(text);
-    const maskedBody = maskLinks(maskCodeBlocks(body));
-    const rawSpellingIssues = checkSpelling(maskedBody);
-    const filteredSpellingIssues = rawSpellingIssues.filter((issue) => {
-      const word = issue.word?.toLowerCase();
-      return !word || !spellingExceptions.has(word);
+    const result = await window.api.checkCorrections({
+      text,
+      spellingExceptions: Array.from(spellingExceptions)
     });
-    issuesByType.spell = offsetIssues(filteredSpellingIssues, offset);
 
-    const grammarResult = await checkGrammar(maskedBody);
-    const rawGrammarIssues = offsetIssues(grammarResult.issues, offset);
-    issuesByType.grammar = rawGrammarIssues.filter((issue) => {
-      if (issue.type !== "spell") {
-        return true;
-      }
-      const word = issue.word?.toLowerCase();
-      return !word || !spellingExceptions.has(word);
-    });
-    if (grammarResult.error) {
-      setStatus(grammarResult.error);
+    issuesByType.spell = result?.issues?.spell ?? [];
+    issuesByType.grammar = result?.issues?.grammar ?? [];
+    if (result?.errors?.grammar) {
+      setStatus(result.errors.grammar);
     } else {
       setStatus("");
     }
@@ -322,7 +312,10 @@ async function refreshFileList() {
     spellingExceptions = new Set();
     return;
   }
-  const result = await window.api.listTextFiles(activeDirectory);
+  const result = await window.api.listTextFiles({
+    directory: activeDirectory,
+    pattern: activeGlobPattern
+  });
   filesInDirectory = result?.files ?? [];
   renderFileList();
   await refreshSpellingExceptions();
@@ -330,10 +323,25 @@ async function refreshFileList() {
 }
 
 async function initializeDirectory() {
+  const storedInput = window.localStorage.getItem("activeDirectoryInput");
+  if (storedInput) {
+    const parsed = parseDirectoryInput(storedInput);
+    const validation = await window.api.validateDirectory(parsed.directory);
+    if (validation?.ok) {
+      activeGlobPattern = parsed.pattern;
+      activeDirectoryInputValue = parsed.display;
+      setActiveDirectory(parsed.directory);
+      await refreshFileList();
+      return;
+    }
+  }
+
   const stored = window.localStorage.getItem("activeDirectory");
   if (stored) {
     const validation = await window.api.validateDirectory(stored);
     if (validation?.ok) {
+      activeGlobPattern = null;
+      activeDirectoryInputValue = stored;
       setActiveDirectory(stored);
       await refreshFileList();
       return;
@@ -342,6 +350,8 @@ async function initializeDirectory() {
 
   const result = await window.api.getHomeDirectory();
   if (result?.path) {
+    activeGlobPattern = null;
+    activeDirectoryInputValue = result.path;
     setActiveDirectory(result.path);
     await refreshFileList();
   }
@@ -364,13 +374,16 @@ async function applyDirectoryInput() {
     return;
   }
 
-  const result = await window.api.validateDirectory(value);
+  const parsed = parseDirectoryInput(value);
+  const result = await window.api.validateDirectory(parsed.directory);
   if (!result?.ok) {
     setDirectoryError(result?.error ?? "Directory not found.");
     return;
   }
 
-  setActiveDirectory(value);
+  activeGlobPattern = parsed.pattern;
+  activeDirectoryInputValue = parsed.display;
+  setActiveDirectory(parsed.directory);
   await refreshFileList();
 }
 
@@ -476,13 +489,14 @@ analyzeButton.addEventListener("click", async () => {
   }
   setStatus("Analyzing...");
   const text = editor.getText();
-  const { body, offset } = extractFrontmatter(text);
-  const maskedBody = maskLinks(maskCodeBlocks(body));
-  const result = await analyzeWithLlm(maskedBody);
-  issuesByType.llm = offsetIssues(result.issues, offset);
+  const result = await window.api.analyzeCorrections({
+    text,
+    spellingExceptions: Array.from(spellingExceptions)
+  });
+  issuesByType.llm = result?.issues?.llm ?? [];
 
-  if (result.error) {
-    setStatus(result.error);
+  if (result?.errors?.llm) {
+    setStatus(result.errors.llm);
   } else {
     setStatus("LLM analysis complete");
     setTimeout(() => setStatus(""), 1500);
@@ -497,6 +511,23 @@ function isMarkdownFile(path) {
   }
   const lower = path.toLowerCase();
   return lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdx");
+}
+
+function parseDirectoryInput(value) {
+  const trimmed = value.trim();
+  const globIndex = trimmed.search(/[\*\?\[]/);
+  if (globIndex === -1) {
+    return { directory: trimmed, pattern: null, display: trimmed };
+  }
+
+  const separatorIndex = trimmed.lastIndexOf("/", globIndex);
+  if (separatorIndex === -1) {
+    return { directory: trimmed, pattern: null, display: trimmed };
+  }
+
+  const directory = trimmed.slice(0, separatorIndex) || "/";
+  const pattern = trimmed.slice(separatorIndex + 1);
+  return { directory, pattern, display: trimmed };
 }
 
 commitCancelButton.addEventListener("click", () => closeCommitModal());
@@ -856,9 +887,12 @@ newFolderConfirmButton.addEventListener("click", async () => {
   const result = await window.api.createFolder({ directory: activeDirectory, name });
   if (result?.error) {
     setNewFolderError(result.error);
+    setStatus(result.error);
     return;
   }
   closeNewFolderModal();
+  setStatus(`Folder created: ${name}`);
+  setTimeout(() => setStatus(""), 1500);
   await refreshFileList();
 });
 

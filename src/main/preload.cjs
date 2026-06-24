@@ -15,6 +15,6 @@ contextBridge.exposeInMainWorld("api", {
   saveAndCommit: (payload) => ipcRenderer.invoke("save-and-commit", payload),
   getGitSyncStatus: (directory) => ipcRenderer.invoke("get-git-sync-status", directory),
   syncWithOrigin: (directory) => ipcRenderer.invoke("sync-with-origin", directory),
-  checkGrammar: (text) => ipcRenderer.invoke("check-grammar", text),
-  analyzeWithLlm: (text) => ipcRenderer.invoke("analyze-llm", text)
+  checkCorrections: (payload) => ipcRenderer.invoke("check-corrections", payload),
+  analyzeCorrections: (payload) => ipcRenderer.invoke("analyze-corrections", payload)
 });

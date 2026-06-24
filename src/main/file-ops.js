@@ -2,10 +2,11 @@ import fs from "fs/promises";
 import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import fg from "fast-glob";
 
 const execFileAsync = promisify(execFile);
 
-export async function listTextFiles(directory) {
+export async function listTextFiles({ directory, pattern } = {}) {
   if (!directory) {
     return { files: [] };
   }
@@ -82,7 +83,36 @@ export async function listTextFiles(directory) {
     }
   }
 
-  await walk(rootDir);
+  if (pattern) {
+    const matches = await fg(pattern, {
+      cwd: rootDir,
+      onlyFiles: true,
+      dot: false,
+      unique: true,
+      followSymbolicLinks: false,
+      ignore: [
+        "**/.git/**",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/resources/**",
+        "**/.languagetool/**"
+      ]
+    });
+    matches.forEach((matchPath) => {
+      const ext = path.extname(matchPath).toLowerCase();
+      if (!textExtensions.has(ext)) {
+        return;
+      }
+      const fullPath = path.join(rootDir, matchPath);
+      files.push({
+        path: fullPath,
+        relativePath: matchPath
+      });
+    });
+  } else {
+    await walk(rootDir);
+  }
+
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   return { files };
 }

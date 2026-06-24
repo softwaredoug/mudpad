@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import net from "net";
 import { resolveJavaCommand, resolveLanguageToolJar } from "./languagetool.js";
 import * as fileOps from "./file-ops.js";
+import { createCorrectionsEngine } from "./corrections.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,10 @@ let languageToolProcess = null;
 let languageToolError = null;
 let languageToolErrorShown = false;
 let languageToolDiagnostics = null;
+const correctionsEngine = createCorrectionsEngine({
+  grammarChecker: checkGrammarWithLanguageTool,
+  llmChecker: analyzeWithLlm
+});
 
 function formatLanguageToolDiagnostics() {
   if (!languageToolDiagnostics) {
@@ -217,8 +222,8 @@ ipcMain.handle("validate-directory", async (_event, directory) => {
   }
 });
 
-ipcMain.handle("list-text-files", async (_event, directory) =>
-  fileOps.listTextFiles(directory)
+ipcMain.handle("list-text-files", async (_event, payload) =>
+  fileOps.listTextFiles(payload)
 );
 
 ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePath));
@@ -249,6 +254,14 @@ ipcMain.handle("get-git-sync-status", async (_event, directory) =>
 
 ipcMain.handle("sync-with-origin", async (_event, directory) =>
   fileOps.syncWithOrigin(directory)
+);
+
+ipcMain.handle("check-corrections", async (_event, payload) =>
+  correctionsEngine.runChecks(payload)
+);
+
+ipcMain.handle("analyze-corrections", async (_event, payload) =>
+  correctionsEngine.runAnalysis(payload)
 );
 
 async function getGitStatus(directory, { fetch = true } = {}) {
@@ -322,7 +335,7 @@ async function getGitStatus(directory, { fetch = true } = {}) {
   };
 }
 
-ipcMain.handle("check-grammar", async (_event, text) => {
+async function checkGrammarWithLanguageTool(text) {
   const endpoint = `http://localhost:${languageToolPort}/v2/check`;
 
   if (languageToolError) {
@@ -375,9 +388,9 @@ ipcMain.handle("check-grammar", async (_event, text) => {
     }
     return { issues: [], error: "LanguageTool not reachable" };
   }
-});
+}
 
-ipcMain.handle("analyze-llm", async (_event, text) => {
+async function analyzeWithLlm(text) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return { issues: [], error: "Missing OPENAI_API_KEY" };
@@ -434,4 +447,4 @@ ipcMain.handle("analyze-llm", async (_event, text) => {
   } catch (error) {
     return { issues: [], error: "Failed to parse LLM response" };
   }
-});
+}

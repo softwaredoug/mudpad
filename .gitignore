@@ -7,3 +7,8 @@ resources/languagetool/
 tmp_editor.png
 tmp_snapshot.txt
 tmp_snapshot2.txt
+tmp_dev.log
+tmp_link_check.png
+tmp_link_check2.png
+tmp_snapshot_debug.txt
+tmp_snapshot_debug2.txt

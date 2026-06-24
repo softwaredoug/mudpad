@@ -16,6 +16,10 @@ I should be able to type the path, and an error will show if after typing that f
 
 Reloading the application should show the previously loaded folder
 
+## GLOB behavior
+
+In addition to typing a path at the top, I should be able to type a glob pattern along with the path to filter the files shown in the sidebar. For example, typing `/path/to/folder/*.md` should show only markdown files in that folder. Typing `/path/to/folder/**/*.md` should show all markdown files in that folder and all subfolders.
+
 ## Saving is committing
 
 Saving should present a pop-up for a commit message (similar to using the github markdown editor) and saving should commit
@@ -78,4 +82,6 @@ Within the double click dialog, there should be a delete button. This will delet
 Delete should perform a git rm operation if the file is in a git repo, and the user should be prompted to commit the change with a message.
 
 When this delete happens, there's a commit. But prepopulate the form with "Deleted file <path>"
+
+## Glob behavior
 

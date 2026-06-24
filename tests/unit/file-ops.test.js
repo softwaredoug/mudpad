@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createNewFile, deleteFile } from "../../src/main/file-ops.js";
+import { createNewFile, deleteFile, listTextFiles } from "../../src/main/file-ops.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -26,6 +26,59 @@ async function withTempRepo(testFn) {
 }
 
 describe("file operations with git", () => {
+  describe("list scenarios", () => {
+    it("lists text files recursively without a glob", async () => {
+      await withTempRepo(async (tmpDir) => {
+        await writeFile(path.join(tmpDir, "a.md"), "", "utf8");
+        await writeFile(path.join(tmpDir, "b.yml"), "", "utf8");
+        await writeFile(path.join(tmpDir, "c.txt"), "", "utf8");
+        await writeFile(path.join(tmpDir, "image.png"), "", "utf8");
+
+        const nestedDir = path.join(tmpDir, "nested");
+        await mkdir(nestedDir, { recursive: true });
+        await writeFile(path.join(nestedDir, "n.md"), "", "utf8");
+        await writeFile(path.join(nestedDir, "n.yml"), "", "utf8");
+
+        const result = await listTextFiles({ directory: tmpDir });
+        const names = result.files.map((file) => file.relativePath).sort();
+
+        assert.deepEqual(names, ["a.md", "b.yml", "c.txt", "nested/n.md", "nested/n.yml"]);
+      });
+    });
+
+    it("applies a non-recursive glob", async () => {
+      await withTempRepo(async (tmpDir) => {
+        await writeFile(path.join(tmpDir, "a.md"), "", "utf8");
+        await writeFile(path.join(tmpDir, "b.yml"), "", "utf8");
+
+        const nestedDir = path.join(tmpDir, "nested");
+        await mkdir(nestedDir, { recursive: true });
+        await writeFile(path.join(nestedDir, "n.md"), "", "utf8");
+
+        const result = await listTextFiles({ directory: tmpDir, pattern: "*.md" });
+        const names = result.files.map((file) => file.relativePath).sort();
+
+        assert.deepEqual(names, ["a.md"]);
+      });
+    });
+
+    it("applies a recursive glob", async () => {
+      await withTempRepo(async (tmpDir) => {
+        await writeFile(path.join(tmpDir, "a.md"), "", "utf8");
+        await writeFile(path.join(tmpDir, "b.yml"), "", "utf8");
+
+        const nestedDir = path.join(tmpDir, "nested");
+        await mkdir(nestedDir, { recursive: true });
+        await writeFile(path.join(nestedDir, "n.md"), "", "utf8");
+
+        const result = await listTextFiles({ directory: tmpDir, pattern: "**/*.md" });
+        const names = result.files.map((file) => file.relativePath).sort();
+
+        assert.deepEqual(names, ["a.md", "nested/n.md"]);
+      });
+    });
+  });
+
   describe("create scenarios", () => {
     it("creates a new file, stages it, and deletes with commit", async () => {
       await withTempRepo(async (tmpDir) => {
