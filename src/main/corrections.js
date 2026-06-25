@@ -1,5 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import {
   FileCorrections,
   buildDismissedChangeEntry,
@@ -12,6 +15,8 @@ const DEFAULT_SPELLING = [
   { word: "recieve", suggestion: "receive" },
   { word: "definately", suggestion: "definitely" }
 ];
+
+const execFileAsync = promisify(execFile);
 
 export function createCorrectionsEngine({
   grammarChecker,
@@ -107,7 +112,7 @@ export function createCorrectionsEngine({
     });
 
     dismissedChangesState = existing;
-    const fileTarget = path.join(targetDirectory, "dismissed-changes.txt");
+    const fileTarget = path.join(targetDirectory, ".dismissed-changes");
     const lines = dismissedChangesState.map((change) => formatDismissedLine(change));
     await fs.writeFile(fileTarget, `${lines.join("\n")}\n`, "utf8");
     if (activeFileCorrections && activeFilePath === entry.filePath) {
@@ -192,10 +197,10 @@ async function loadDirectoryState(directory) {
 }
 
 async function readSpellingExceptions(directory) {
-  if (!directory) {
+  const filePath = await findNearestFile(directory, ".spelling-exceptions");
+  if (!filePath) {
     return [];
   }
-  const filePath = path.join(directory, ".spelling-exceptions");
   try {
     const content = await fs.readFile(filePath, "utf8");
     return content
@@ -208,10 +213,10 @@ async function readSpellingExceptions(directory) {
 }
 
 async function readDismissedChanges(directory) {
-  if (!directory) {
+  const filePath = await findNearestFile(directory, ".dismissed-changes");
+  if (!filePath) {
     return [];
   }
-  const filePath = path.join(directory, "dismissed-changes.txt");
   try {
     const content = await fs.readFile(filePath, "utf8");
     return content
@@ -240,4 +245,56 @@ function parseDismissedLine(line) {
     before: (before ?? "").trim(),
     after: (after ?? "").trim()
   });
+}
+
+async function findNearestFile(startDir, fileName) {
+  if (!startDir) {
+    return null;
+  }
+  const repoRoot = await resolveRepoRoot(startDir);
+  const limitDir = repoRoot ?? path.resolve(os.homedir());
+  let current = await normalizePath(startDir);
+  const limit = await normalizePath(limitDir);
+
+  while (true) {
+    const candidate = path.join(current, fileName);
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat.isFile()) {
+        return candidate;
+      }
+    } catch (error) {
+      // ignore
+    }
+
+    if (current === limit) {
+      break;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  return null;
+}
+
+async function resolveRepoRoot(startDir) {
+  try {
+    const result = await execFileAsync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: startDir
+    });
+    return result.stdout.trim();
+  } catch (error) {
+    return null;
+  }
+}
+
+async function normalizePath(targetPath) {
+  try {
+    return await fs.realpath(targetPath);
+  } catch (error) {
+    return path.resolve(targetPath);
+  }
 }

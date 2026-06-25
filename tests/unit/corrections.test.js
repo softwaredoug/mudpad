@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createCorrectionsEngine } from "../../src/main/corrections.js";
+
+const execFileAsync = promisify(execFile);
+
+async function runGit(args, cwd) {
+  return execFileAsync("git", args, { cwd });
+}
 
 describe("corrections engine", () => {
   it("filters issues inside link destinations", async () => {
@@ -234,5 +242,159 @@ describe("corrections engine", () => {
 
     assert.equal(result.text, "the typo");
     assert.ok(result.issues);
+  });
+
+  it("uses spelling exceptions from git root when missing locally", async () => {
+    const repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "corrections-git-"));
+    try {
+      await runGit(["init"], repoDir);
+      const nestedDir = path.join(repoDir, "posts", "drafts");
+      await fs.mkdir(nestedDir, { recursive: true });
+      await fs.writeFile(path.join(repoDir, ".spelling-exceptions"), "ubik\n", "utf8");
+
+      const text = "Ubik is a proper noun.";
+      const start = text.indexOf("Ubik");
+      const spellChecker = () => [
+        {
+          id: "spell-0",
+          type: "spell",
+          word: "Ubik",
+          range: { start, end: start + "Ubik".length },
+          message: "Possible misspelling: Ubik",
+          suggestions: ["Ubik"],
+          source: "local",
+          confidence: 0.7,
+          status: "open"
+        }
+      ];
+      const engine = createCorrectionsEngine({ spellChecker });
+      await engine.setDirectory(nestedDir);
+      const fileCorrections = engine.getFileCorrections(path.join(nestedDir, "sample.md"));
+      const result = await fileCorrections.runChecks({ text });
+
+      assert.equal(result.issues.spell.length, 0);
+    } finally {
+      await fs.rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers spelling exceptions in the nearest directory", async () => {
+    const repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "corrections-git-"));
+    try {
+      await runGit(["init"], repoDir);
+      const nestedDir = path.join(repoDir, "posts", "drafts");
+      await fs.mkdir(nestedDir, { recursive: true });
+      await fs.writeFile(path.join(repoDir, ".spelling-exceptions"), "ubik\n", "utf8");
+      await fs.writeFile(path.join(nestedDir, ".spelling-exceptions"), "teh\n", "utf8");
+
+      const text = "Ubik and teh words.";
+      const startUbik = text.indexOf("Ubik");
+      const startTeh = text.indexOf("teh");
+      const spellChecker = () => [
+        {
+          id: "spell-0",
+          type: "spell",
+          word: "Ubik",
+          range: { start: startUbik, end: startUbik + "Ubik".length },
+          message: "Possible misspelling: Ubik",
+          suggestions: ["Ubik"],
+          source: "local",
+          confidence: 0.7,
+          status: "open"
+        },
+        {
+          id: "spell-1",
+          type: "spell",
+          word: "teh",
+          range: { start: startTeh, end: startTeh + "teh".length },
+          message: "Possible misspelling: teh",
+          suggestions: ["the"],
+          source: "local",
+          confidence: 0.7,
+          status: "open"
+        }
+      ];
+      const engine = createCorrectionsEngine({ spellChecker });
+      await engine.setDirectory(nestedDir);
+      const fileCorrections = engine.getFileCorrections(path.join(nestedDir, "sample.md"));
+      const result = await fileCorrections.runChecks({ text });
+
+      assert.equal(result.issues.spell.length, 1);
+      assert.equal(result.issues.spell[0].word, "Ubik");
+    } finally {
+      await fs.rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses dismissed changes from git root when missing locally", async () => {
+    const repoDir = await fs.mkdtemp(path.join(os.tmpdir(), "corrections-git-"));
+    try {
+      await runGit(["init"], repoDir);
+      const nestedDir = path.join(repoDir, "notes");
+      await fs.mkdir(nestedDir, { recursive: true });
+      const filePath = path.join(nestedDir, "sample.md");
+      const dismissedLine = `${filePath}\tubik\t\t is a proper noun`;
+      await fs.writeFile(
+        path.join(repoDir, ".dismissed-changes"),
+        `${dismissedLine}\n`,
+        "utf8"
+      );
+
+      const text = "Ubik is a proper noun.";
+      const start = text.indexOf("Ubik");
+      const grammarChecker = async () => ({
+        issues: [
+          {
+            type: "grammar",
+            range: { start, end: start + "Ubik".length },
+            message: "Test"
+          }
+        ],
+        error: null
+      });
+      const engine = createCorrectionsEngine({ grammarChecker, spellChecker: () => [] });
+      await engine.setDirectory(nestedDir);
+      const fileCorrections = engine.getFileCorrections(filePath);
+      const result = await fileCorrections.runChecks({ text });
+
+      assert.equal(result.issues.grammar.length, 0);
+    } finally {
+      await fs.rm(repoDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses spelling exceptions from home when no git repo", async () => {
+    const homeDir = os.homedir();
+    const baseDir = await fs.mkdtemp(path.join(homeDir, "corrections-home-"));
+    try {
+      const nestedDir = path.join(baseDir, "drafts");
+      await fs.mkdir(nestedDir, { recursive: true });
+      await fs.writeFile(path.join(homeDir, ".spelling-exceptions"), "ubik\n", "utf8");
+
+      const text = "Ubik is a proper noun.";
+      const start = text.indexOf("Ubik");
+      const spellChecker = () => [
+        {
+          id: "spell-0",
+          type: "spell",
+          word: "Ubik",
+          range: { start, end: start + "Ubik".length },
+          message: "Possible misspelling: Ubik",
+          suggestions: ["Ubik"],
+          source: "local",
+          confidence: 0.7,
+          status: "open"
+        }
+      ];
+      const engine = createCorrectionsEngine({ spellChecker });
+      await engine.setDirectory(nestedDir);
+      const fileCorrections = engine.getFileCorrections(path.join(nestedDir, "sample.md"));
+      const result = await fileCorrections.runChecks({ text });
+
+      assert.equal(result.issues.spell.length, 0);
+    } finally {
+      await fs.rm(baseDir, { recursive: true, force: true });
+      await fs.rm(path.join(homeDir, ".spelling-exceptions"), { force: true });
+    }
   });
 });
