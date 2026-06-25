@@ -482,53 +482,6 @@ export async function syncWithOrigin(directory) {
   }
 }
 
-export async function readSpellingExceptions(directory) {
-  if (!directory) {
-    return { words: [] };
-  }
-  const filePath = path.join(directory, ".spelling-exceptions");
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    const words = content
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    return { words };
-  } catch (error) {
-    return { words: [] };
-  }
-}
-
-export async function addSpellingException({ directory, word }) {
-  if (!directory) {
-    return { error: "No directory selected." };
-  }
-  if (!word || !word.trim()) {
-    return { error: "No word provided." };
-  }
-
-  const filePath = path.join(directory, ".spelling-exceptions");
-  let words = [];
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    words = content
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-  } catch (error) {
-    words = [];
-  }
-
-  const normalized = word.trim();
-  const normalizedLower = normalized.toLowerCase();
-  const existing = new Set(words.map((entry) => entry.toLowerCase()));
-  if (!existing.has(normalizedLower)) {
-    words.push(normalized);
-    await fs.writeFile(filePath, `${words.join("\n")}\n`, "utf8");
-  }
-
-  return { words };
-}
 
 async function resolveRepoRoot(startDir) {
   try {

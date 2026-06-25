@@ -39,3 +39,28 @@ The text in parenthesis should not be corrected, but the text in the brackets sh
 Keep a list in the active directory of teh spelling exceptions. This is a text file with one word per line. The words in this file will be ignored for spelling corrections.
 
 That should only apply to the open directory
+
+
+## Dismissed changes
+
+Dismissed changes are dismissed exactly once and ideally not brought back again.
+
+In the same folder as the spelling exceptions, keep a file called dismissed-changes.txt. This is a text file with one line per dismissed change.
+
+The intention is to capture the dismissal and surrounding context. It's not a perfect way to do this, but it should be good enough for now.
+
+Basically, when any change is "dismissed" we capture the several words before and after the change and store that in the dismissed-changes.txt file. If that same change is suggested again, we can check the surrounding context and if it matches, we can ignore it.
+
+In addition, the file path of the document should be stored in the dismissed-changes.txt file so that we can ignore the same change in other documents in the same folder.
+
+All in all, something like:
+
+```
+<file path> <change> <context before> <context after>
+```
+
+And the file should be sorted by <file path>
+
+Here <file path> is an absolute path.
+
+Be sure that the module that handles corrections can see the file path to be able to do this lookup

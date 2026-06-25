@@ -7,12 +7,19 @@ import net from "net";
 import { resolveJavaCommand, resolveLanguageToolJar } from "./languagetool.js";
 import * as fileOps from "./file-ops.js";
 import { createCorrectionsEngine } from "./corrections.js";
+import { Worker } from "worker_threads";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const debugPort = process.env.REMOTE_DEBUGGING_PORT ?? "9222";
 app.commandLine.appendSwitch("remote-debugging-port", debugPort);
 console.log(`Remote debugging enabled on port ${debugPort}`);
+const appStartTime = Date.now();
+
+function logStartup(message) {
+  const elapsed = Date.now() - appStartTime;
+  console.log(`[startup +${elapsed}ms] ${message}`);
+}
 
 let languageToolPort = process.env.LANGUAGETOOL_PORT ?? "8010";
 let languageToolProcess = null;
@@ -60,6 +67,8 @@ async function startLanguageTool() {
     return;
   }
 
+  logStartup("LanguageTool start");
+
   const cacheDir = path.join(app.getPath("userData"), "languagetool");
   const bundledDir = path.join(process.resourcesPath, "languagetool");
 
@@ -75,6 +84,7 @@ async function startLanguageTool() {
       stderr: stderrBuffer
     };
     languageToolProcess = spawn(javaCommand, args, { stdio: ["ignore", "pipe", "pipe"] });
+    logStartup("LanguageTool spawned");
 
     languageToolProcess.stdout.on("data", (chunk) => {
       process.stdout.write(chunk);
@@ -149,6 +159,7 @@ function findAvailablePort(preferredPort) {
 }
 
 function createWindow() {
+  logStartup("Create window");
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -166,9 +177,13 @@ function createWindow() {
     const indexPath = path.join(__dirname, "../../dist/renderer/index.html");
     win.loadFile(indexPath);
   }
+
+  win.once("ready-to-show", () => logStartup("Window ready-to-show"));
+  win.webContents.once("did-finish-load", () => logStartup("Renderer did-finish-load"));
 }
 
 app.whenReady().then(() => {
+  logStartup("App ready");
   startLanguageTool();
   createWindow();
 
@@ -207,6 +222,12 @@ ipcMain.handle("get-home-directory", async () => {
   return { path: app.getPath("home") };
 });
 
+ipcMain.handle("get-last-directory", async () => readLastDirectory());
+
+ipcMain.handle("set-last-directory", async (_event, payload) =>
+  writeLastDirectory(payload)
+);
+
 ipcMain.handle("validate-directory", async (_event, directory) => {
   if (!directory) {
     return { ok: false, error: "Path is required." };
@@ -222,8 +243,13 @@ ipcMain.handle("validate-directory", async (_event, directory) => {
   }
 });
 
+ipcMain.handle("set-corrections-directory", async (_event, directory) => {
+  await correctionsEngine.setDirectory(directory);
+  return { ok: true };
+});
+
 ipcMain.handle("list-text-files", async (_event, payload) =>
-  fileOps.listTextFiles(payload)
+  listTextFilesInWorker(payload)
 );
 
 ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePath));
@@ -238,13 +264,33 @@ ipcMain.handle("rename-file", async (_event, payload) => fileOps.renameFile(payl
 
 ipcMain.handle("delete-file", async (_event, payload) => fileOps.deleteFile(payload));
 
-ipcMain.handle("read-spelling-exceptions", async (_event, directory) =>
-  fileOps.readSpellingExceptions(directory)
+ipcMain.handle("add-spelling-exception", async (_event, payload) =>
+  {
+    const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
+    if (!fileCorrections) {
+      return { error: "No active file." };
+    }
+    return fileCorrections.ignoreWord(payload?.word);
+  }
 );
 
-ipcMain.handle("add-spelling-exception", async (_event, payload) =>
-  fileOps.addSpellingException(payload)
+ipcMain.handle("add-dismissed-change", async (_event, payload) =>
+  {
+    const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
+    if (!fileCorrections) {
+      return { error: "No active file." };
+    }
+    return fileCorrections.dismissIssue({ issue: payload?.issue, text: payload?.text });
+  }
 );
+
+ipcMain.handle("apply-issue", async (_event, payload) => {
+  const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
+  if (!fileCorrections) {
+    return { error: "No active file." };
+  }
+  return fileCorrections.applyIssue({ issue: payload?.issue, text: payload?.text ?? "" });
+});
 
 ipcMain.handle("save-and-commit", async (_event, payload) => fileOps.saveAndCommit(payload));
 
@@ -256,12 +302,78 @@ ipcMain.handle("sync-with-origin", async (_event, directory) =>
   fileOps.syncWithOrigin(directory)
 );
 
+async function listTextFilesInWorker(payload) {
+  return new Promise((resolve) => {
+    const worker = new Worker(new URL("./workers/list-files-worker.js", import.meta.url), {
+      workerData: payload ?? {}
+    });
+
+    worker.once("message", (message) => {
+      resolve(message);
+      worker.terminate();
+    });
+
+    worker.once("error", (error) => {
+      resolve({ files: [], error: error?.message || "Failed to list files." });
+      worker.terminate();
+    });
+
+    worker.once("exit", (code) => {
+      if (code !== 0) {
+        resolve({ files: [], error: `Worker exited with code ${code}` });
+      }
+    });
+  });
+}
+
+async function readLastDirectory() {
+  try {
+    const filePath = path.join(app.getPath("userData"), "last-directory.json");
+    const content = await fs.readFile(filePath, "utf8");
+    const data = JSON.parse(content);
+    if (data?.directory) {
+      return { path: data.directory, display: data.display ?? data.directory };
+    }
+  } catch (error) {
+    // ignore
+  }
+  return { path: null };
+}
+
+async function writeLastDirectory(payload) {
+  const directory = payload?.directory ?? payload;
+  if (!directory) {
+    return { ok: false };
+  }
+  try {
+    const filePath = path.join(app.getPath("userData"), "last-directory.json");
+    const display = payload?.display ?? directory;
+    const content = JSON.stringify({ directory, display }, null, 2);
+    await fs.writeFile(filePath, content, "utf8");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error?.message || "Failed to save directory." };
+  }
+}
+
 ipcMain.handle("check-corrections", async (_event, payload) =>
-  correctionsEngine.runChecks(payload)
+  {
+    const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
+    if (!fileCorrections) {
+      return { issues: { spell: [], grammar: [], llm: [] }, errors: { grammar: null, llm: null } };
+    }
+    return fileCorrections.runChecks({ text: payload?.text ?? "" });
+  }
 );
 
 ipcMain.handle("analyze-corrections", async (_event, payload) =>
-  correctionsEngine.runAnalysis(payload)
+  {
+    const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
+    if (!fileCorrections) {
+      return { issues: { spell: [], grammar: [], llm: [] }, errors: { grammar: null, llm: null } };
+    }
+    return fileCorrections.runAnalysis({ text: payload?.text ?? "" });
+  }
 );
 
 async function getGitStatus(directory, { fetch = true } = {}) {

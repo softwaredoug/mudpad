@@ -1,5 +1,10 @@
-import "./styles.css";
 import { createEditor } from "./editor.js";
+
+const rendererStart = performance.now();
+const logStartup = (message) => {
+  const elapsed = Math.round(performance.now() - rendererStart);
+  console.log(`[renderer +${elapsed}ms] ${message}`);
+};
 
 const selectDirectoryButton = document.getElementById("select-directory-button");
 const analyzeButton = document.getElementById("analyze-button");
@@ -65,7 +70,6 @@ let renameSummaryAuto = false;
 let deleteTargetPath = null;
 let deleteRequiresCommit = false;
 let deleteSummaryAuto = false;
-let spellingExceptions = new Set();
 let activeGlobPattern = null;
 let activeDirectoryInputValue = null;
 
@@ -79,6 +83,7 @@ const editor = createEditor({
 });
 
 initializeDirectory();
+logStartup("Renderer initialized");
 
 function setStatus(message) {
   statusLabel.textContent = message ?? "";
@@ -105,6 +110,10 @@ function setActiveDirectory(path) {
     if (activeDirectoryInputValue) {
       window.localStorage.setItem("activeDirectoryInput", activeDirectoryInputValue);
     }
+    window.api.setLastDirectory({
+      directory: path,
+      display: activeDirectoryInputValue ?? path
+    });
   }
 }
 
@@ -178,7 +187,7 @@ function scheduleChecks() {
     const text = editor.getText();
     const result = await window.api.checkCorrections({
       text,
-      spellingExceptions: Array.from(spellingExceptions)
+      filePath
     });
 
     issuesByType.spell = result?.issues?.spell ?? [];
@@ -309,7 +318,7 @@ async function refreshFileList() {
     filesInDirectory = [];
     renderFileList();
     setRepoStatus(null);
-    spellingExceptions = new Set();
+    await window.api.setCorrectionsDirectory(null);
     return;
   }
   const result = await window.api.listTextFiles({
@@ -318,11 +327,27 @@ async function refreshFileList() {
   });
   filesInDirectory = result?.files ?? [];
   renderFileList();
-  await refreshSpellingExceptions();
   await refreshRepoStatus();
+  logStartup("File list refreshed");
 }
 
 async function initializeDirectory() {
+  logStartup("Initialize directory start");
+  const lastDirectory = await window.api.getLastDirectory();
+  if (lastDirectory?.path) {
+    const parsed = parseDirectoryInput(lastDirectory.display ?? lastDirectory.path);
+    const validation = await window.api.validateDirectory(parsed.directory);
+    if (validation?.ok) {
+      activeGlobPattern = parsed.pattern;
+      activeDirectoryInputValue = parsed.display;
+      setActiveDirectory(parsed.directory);
+      await window.api.setCorrectionsDirectory(parsed.directory);
+      await refreshFileList();
+      logStartup("Initialize directory done (last directory)");
+      return;
+    }
+  }
+
   const storedInput = window.localStorage.getItem("activeDirectoryInput");
   if (storedInput) {
     const parsed = parseDirectoryInput(storedInput);
@@ -331,7 +356,9 @@ async function initializeDirectory() {
       activeGlobPattern = parsed.pattern;
       activeDirectoryInputValue = parsed.display;
       setActiveDirectory(parsed.directory);
+      await window.api.setCorrectionsDirectory(parsed.directory);
       await refreshFileList();
+      logStartup("Initialize directory done (stored input)");
       return;
     }
   }
@@ -343,7 +370,9 @@ async function initializeDirectory() {
       activeGlobPattern = null;
       activeDirectoryInputValue = stored;
       setActiveDirectory(stored);
+      await window.api.setCorrectionsDirectory(stored);
       await refreshFileList();
+      logStartup("Initialize directory done (stored)");
       return;
     }
   }
@@ -353,23 +382,21 @@ async function initializeDirectory() {
     activeGlobPattern = null;
     activeDirectoryInputValue = result.path;
     setActiveDirectory(result.path);
+    await window.api.setCorrectionsDirectory(result.path);
     await refreshFileList();
+    logStartup("Initialize directory done (home)");
   }
 }
 
-async function refreshSpellingExceptions() {
-  if (!activeDirectory) {
-    spellingExceptions = new Set();
-    return;
-  }
-  const result = await window.api.readSpellingExceptions(activeDirectory);
-  const words = (result?.words ?? []).map((word) => word.toLowerCase());
-  spellingExceptions = new Set(words);
-}
 
 async function applyDirectoryInput() {
   const value = activeDirectoryInput.value.trim();
   if (!value) {
+    if (activeDirectoryInputValue) {
+      activeDirectoryInput.value = activeDirectoryInputValue;
+      setDirectoryError("");
+      return;
+    }
     setDirectoryError("Path is required.");
     return;
   }
@@ -384,6 +411,7 @@ async function applyDirectoryInput() {
   activeGlobPattern = parsed.pattern;
   activeDirectoryInputValue = parsed.display;
   setActiveDirectory(parsed.directory);
+  await window.api.setCorrectionsDirectory(parsed.directory);
   await refreshFileList();
 }
 
@@ -405,13 +433,41 @@ async function handleFileDoubleClick(path) {
   await openFile(path);
 }
 
-function applyIssue(issue) {
-  const replacement = issue.suggestions?.[0] ?? "";
-  editor.replaceRange(issue.range.start, issue.range.end, replacement);
+async function applyIssue(issue) {
+  if (!filePath) {
+    return;
+  }
+  const text = editor.getText();
+  const result = await window.api.applyIssue({
+    filePath,
+    text,
+    issue
+  });
+  if (result?.error) {
+    setStatus(result.error);
+    return;
+  }
+  if (result?.range) {
+    editor.replaceRange(result.range.start, result.range.end, result.replacement ?? "");
+  } else if (typeof result?.text === "string") {
+    editor.setText(result.text);
+  }
   scheduleChecks();
 }
 
-function dismissIssue(issue) {
+async function dismissIssue(issue) {
+  if (activeDirectory && filePath) {
+    const text = editor.getText();
+    const result = await window.api.addDismissedChange({
+      directory: activeDirectory,
+      filePath,
+      text,
+      issue
+    });
+    if (result?.error) {
+      setStatus(result.error);
+    }
+  }
   const list = issuesByType[issue.type] ?? [];
   issuesByType[issue.type] = list.filter((item) => item.id !== issue.id);
   refreshIssues();
@@ -428,13 +484,13 @@ async function ignoreIssue(issue) {
   }
   const result = await window.api.addSpellingException({
     directory: activeDirectory,
+    filePath,
     word
   });
   if (result?.error) {
     setStatus(result.error);
     return;
   }
-  await refreshSpellingExceptions();
   scheduleChecks();
 }
 
@@ -443,7 +499,10 @@ selectDirectoryButton.addEventListener("click", async () => {
   if (!result?.path) {
     return;
   }
+  activeGlobPattern = null;
+  activeDirectoryInputValue = result.path;
   setActiveDirectory(result.path);
+  await window.api.setCorrectionsDirectory(result.path);
   await refreshFileList();
 });
 
@@ -491,7 +550,7 @@ analyzeButton.addEventListener("click", async () => {
   const text = editor.getText();
   const result = await window.api.analyzeCorrections({
     text,
-    spellingExceptions: Array.from(spellingExceptions)
+    filePath
   });
   issuesByType.llm = result?.issues?.llm ?? [];
 

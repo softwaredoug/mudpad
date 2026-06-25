@@ -19,7 +19,8 @@ describe("corrections engine", () => {
     });
 
     const engine = createCorrectionsEngine({ grammarChecker, spellChecker: () => [] });
-    const result = await engine.runChecks({ text });
+    const fileCorrections = engine.getFileCorrections("/tmp/test.md");
+    const result = await fileCorrections.runChecks({ text });
 
     assert.equal(result.issues.grammar.length, 0);
   });
@@ -39,7 +40,8 @@ describe("corrections engine", () => {
     });
 
     const engine = createCorrectionsEngine({ grammarChecker, spellChecker: () => [] });
-    const result = await engine.runChecks({ text });
+    const fileCorrections = engine.getFileCorrections("/tmp/test.md");
+    const result = await fileCorrections.runChecks({ text });
 
     assert.equal(result.issues.grammar.length, 0);
   });
@@ -47,7 +49,8 @@ describe("corrections engine", () => {
   it("applies spelling exceptions", async () => {
     const text = "teh typo";
     const engine = createCorrectionsEngine();
-    const result = await engine.runChecks({
+    const fileCorrections = engine.getFileCorrections("/tmp/test.md");
+    const result = await fileCorrections.runChecks({
       text,
       spellingExceptions: ["teh"]
     });
@@ -69,8 +72,39 @@ describe("corrections engine", () => {
     });
 
     const engine = createCorrectionsEngine({ llmChecker, spellChecker: () => [] });
-    const result = await engine.runAnalysis({ text });
+    const fileCorrections = engine.getFileCorrections("/tmp/test.md");
+    const result = await fileCorrections.runAnalysis({ text });
 
     assert.equal(result.issues.llm.length, 1);
+  });
+
+  it("filters dismissed changes by context and file", async () => {
+    const text = "one two three four five six target seven eight nine ten eleven twelve";
+    const start = text.indexOf("target");
+    const grammarChecker = async () => ({
+      issues: [
+        {
+          type: "grammar",
+          range: { start, end: start + "target".length }
+        }
+      ],
+      error: null
+    });
+
+    const engine = createCorrectionsEngine({ grammarChecker, spellChecker: () => [] });
+    const fileCorrections = engine.getFileCorrections("/tmp/example.md");
+    const result = await fileCorrections.runChecks({
+      text,
+      dismissedEntries: [
+        {
+          filePath: "/tmp/example.md",
+          change: "target",
+          before: "one two three four five six",
+          after: "seven eight nine ten eleven twelve"
+        }
+      ]
+    });
+
+    assert.equal(result.issues.grammar.length, 0);
   });
 });
