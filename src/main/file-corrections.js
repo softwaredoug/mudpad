@@ -87,19 +87,22 @@ export class FileCorrections {
       issue,
       filePath: this.filePath
     });
-    if (!result?.error) {
-      this.refreshDismissed();
-      console.debug(`Dismissed issue for file ${this.filePath}:`, issue);
+    if (result?.error) {
+      return result;
     }
-    return result;
+    this.refreshDismissed();
+    return this.runAnalysis({ text, includeLlm: false });
   }
 
-  async ignoreWord(word) {
+  async ignoreWord({ word, text }) {
     const result = await this.engine.addSpellingException({ word });
-    return result;
+    if (result?.error) {
+      return result;
+    }
+    return this.runAnalysis({ text, includeLlm: false });
   }
 
-  applyIssue({ issue, text }) {
+  async applyIssue({ issue, text }) {
     if (!issue?.range) {
       return { text, error: "Missing issue range." };
     }
@@ -107,7 +110,8 @@ export class FileCorrections {
     const start = Math.max(0, issue.range.start ?? 0);
     const end = Math.max(start, issue.range.end ?? start);
     const nextText = `${text.slice(0, start)}${replacement}${text.slice(end)}`;
-    return { text: nextText, range: { start, end }, replacement };
+    const analysis = await this.runAnalysis({ text: nextText, includeLlm: false });
+    return { text: nextText, issues: analysis.issues, errors: analysis.errors };
   }
 }
 

@@ -270,7 +270,7 @@ ipcMain.handle("add-spelling-exception", async (_event, payload) =>
     if (!fileCorrections) {
       return { error: "No active file." };
     }
-    return fileCorrections.ignoreWord(payload?.word);
+    return fileCorrections.ignoreWord({ word: payload?.word, text: payload?.text ?? "" });
   }
 );
 
@@ -280,7 +280,7 @@ ipcMain.handle("add-dismissed-change", async (_event, payload) =>
     if (!fileCorrections) {
       return { error: "No active file." };
     }
-    return fileCorrections.dismissIssue({ issue: payload?.issue, text: payload?.text });
+    return fileCorrections.dismissIssue({ issue: payload?.issue, text: payload?.text ?? "" });
   }
 );
 

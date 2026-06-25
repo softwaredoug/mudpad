@@ -166,4 +166,73 @@ describe("corrections engine", () => {
     const result = await fileCorrections.runAnalysis({ text, includeLlm: false });
     assert.equal(result.issues.spell.length, 0);
   });
+
+  it("returns issues after dismiss and ignore", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "corrections-"));
+    const text = "Ubik is a proper noun.";
+    const start = text.indexOf("Ubik");
+    const spellChecker = () => [
+      {
+        id: "spell-0",
+        type: "spell",
+        word: "Ubik",
+        range: { start, end: start + "Ubik".length },
+        message: "Possible misspelling: Ubik",
+        suggestions: ["Ubik"],
+        source: "local",
+        confidence: 0.7,
+        status: "open"
+      }
+    ];
+    const engine = createCorrectionsEngine({ spellChecker });
+    await engine.setDirectory(tmpDir);
+    const filePath = path.join(tmpDir, "sample.md");
+    const fileCorrections = engine.getFileCorrections(filePath);
+
+    const dismissResult = await fileCorrections.dismissIssue({
+      issue: {
+        type: "spell",
+        word: "Ubik",
+        range: { start, end: start + "Ubik".length }
+      },
+      text
+    });
+
+    assert.ok(dismissResult.issues);
+    assert.equal(dismissResult.issues.spell.length, 0);
+
+    const ignoreResult = await fileCorrections.ignoreWord({ word: "Ubik", text });
+    assert.ok(ignoreResult.issues);
+    assert.equal(ignoreResult.issues.spell.length, 0);
+  });
+
+  it("returns updated text and issues after apply", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "corrections-"));
+    const text = "teh typo";
+    const start = text.indexOf("teh");
+    const spellChecker = () => [
+      {
+        id: "spell-0",
+        type: "spell",
+        word: "teh",
+        range: { start, end: start + "teh".length },
+        message: "Possible misspelling: teh",
+        suggestions: ["the"],
+        source: "local",
+        confidence: 0.7,
+        status: "open"
+      }
+    ];
+    const engine = createCorrectionsEngine({ spellChecker });
+    await engine.setDirectory(tmpDir);
+    const fileCorrections = engine.getFileCorrections(path.join(tmpDir, "sample.md"));
+
+    const result = await fileCorrections.applyIssue({
+      issue: spellChecker()[0],
+      text
+    });
+
+    assert.equal(result.text, "the typo");
+    assert.ok(result.issues);
+  });
 });

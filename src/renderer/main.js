@@ -447,12 +447,17 @@ async function applyIssue(issue) {
     setStatus(result.error);
     return;
   }
-  if (result?.range) {
-    editor.replaceRange(result.range.start, result.range.end, result.replacement ?? "");
-  } else if (typeof result?.text === "string") {
+  if (typeof result?.text === "string") {
     editor.setText(result.text);
   }
-  scheduleChecks();
+  if (result?.issues) {
+    issuesByType.spell = result.issues.spell ?? [];
+    issuesByType.grammar = result.issues.grammar ?? [];
+    issuesByType.llm = result.issues.llm ?? [];
+    refreshIssues();
+  } else {
+    scheduleChecks();
+  }
 }
 
 async function dismissIssue(issue) {
@@ -466,6 +471,14 @@ async function dismissIssue(issue) {
     });
     if (result?.error) {
       setStatus(result.error);
+      return;
+    }
+    if (result?.issues) {
+      issuesByType.spell = result.issues.spell ?? [];
+      issuesByType.grammar = result.issues.grammar ?? [];
+      issuesByType.llm = result.issues.llm ?? [];
+      refreshIssues();
+      return;
     }
   }
   const list = issuesByType[issue.type] ?? [];
@@ -485,10 +498,18 @@ async function ignoreIssue(issue) {
   const result = await window.api.addSpellingException({
     directory: activeDirectory,
     filePath,
-    word
+    word,
+    text: editor.getText()
   });
   if (result?.error) {
     setStatus(result.error);
+    return;
+  }
+  if (result?.issues) {
+    issuesByType.spell = result.issues.spell ?? [];
+    issuesByType.grammar = result.issues.grammar ?? [];
+    issuesByType.llm = result.issues.llm ?? [];
+    refreshIssues();
     return;
   }
   scheduleChecks();
