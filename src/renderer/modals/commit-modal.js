@@ -5,8 +5,7 @@ export class CommitModal {
     mountEl,
     window,
     fileService,
-    getFilePath,
-    getEditorText,
+    editorComponent,
     setStatus,
     refreshRepoStatus
   }) {
@@ -17,8 +16,7 @@ export class CommitModal {
     });
     this.window = window;
     this.fileService = fileService;
-    this.getFilePath = getFilePath;
-    this.getEditorText = getEditorText;
+    this.editorComponent = editorComponent;
     this.setStatus = setStatus;
     this.refreshRepoStatus = refreshRepoStatus;
     this.summaryInput = null;
@@ -82,7 +80,7 @@ export class CommitModal {
       this.setError("Summary is required.");
       return;
     }
-    const filePath = this.getFilePath();
+    const filePath = this.editorComponent.getFilePath();
     if (!filePath) {
       this.setError("Select a file to commit.");
       return;
@@ -91,7 +89,7 @@ export class CommitModal {
     this.setStatus("Committing...");
     const result = await this.fileService.saveAndCommit({
       path: filePath,
-      content: this.getEditorText(),
+      content: this.editorComponent.getText(),
       messageShort: summary,
       messageLong: details
     });

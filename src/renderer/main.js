@@ -1,6 +1,7 @@
 import { createEditor } from "./editor.js";
 import { FileService } from "./services/file-service.js";
 import { CorrectionsService } from "./services/corrections-service.js";
+import { EditorComponent } from "./components/editor-component.js";
 import { CommitModal } from "./modals/commit-modal.js";
 import { RepoModal } from "./modals/repo-modal.js";
 import { RenameModal } from "./modals/rename-modal.js";
@@ -31,26 +32,38 @@ const repoStatusButton = document.getElementById("repo-status");
 const repoStatusDot = document.getElementById("repo-status-dot");
 const repoStatusLabel = document.getElementById("repo-status-label");
 
-let filePath = null;
+let activeFilePath = null;
 let activeDirectory = null;
 let filesInDirectory = [];
-let issuesByType = {
-  spell: [],
-  grammar: [],
-  llm: []
-};
-let debounceHandle = null;
 let repoStatus = null;
 let activeGlobPattern = null;
 let activeDirectoryInputValue = null;
-let activeFileContent = "";
+
+let editorComponent;
+
+const editor = createEditor({
+  parent: document.getElementById("editor"),
+  initialText: "",
+  onChange: () => editorComponent?.handleEditorChange(),
+  onApplyIssue: (issue) => editorComponent?.applyIssue(issue),
+  onDismissIssue: (issue) => editorComponent?.dismissIssue(issue),
+  onIgnoreIssue: (issue) => editorComponent?.ignoreIssue(issue)
+});
+
+editorComponent = new EditorComponent({
+  editor,
+  fileService,
+  correctionsService,
+  onStatus: (message) => setStatus(message),
+  onIssuesChanged: (issues) => renderIssues(issues),
+  onFileChanged: (path) => setActiveFilePath(path)
+});
 
 const commitModal = new CommitModal({
   mountEl: modalMount,
   window,
   fileService,
-  getFilePath: () => filePath,
-  getEditorText: () => editor.getText(),
+  editorComponent,
   setStatus: (message) => setStatus(message),
   refreshRepoStatus: () => refreshRepoStatus()
 });
@@ -71,7 +84,7 @@ const renameModal = new RenameModal({
   buildSummary: buildRenameSummary,
   onConfirm: async ({ result }) => {
     if (result?.path) {
-      await openFile(result.path);
+      await editorComponent.openFile(result.path);
     }
     await refreshFileList();
     await refreshRepoStatus();
@@ -117,20 +130,10 @@ const deleteModal = new DeleteModal({
       return;
     }
     deleteModal.close();
-    setFilePath(null);
-    editor.setText("");
+    editorComponent.closeFile();
     await refreshFileList();
     await refreshRepoStatus();
   }
-});
-
-const editor = createEditor({
-  parent: document.getElementById("editor"),
-  initialText: "",
-  onChange: handleEditorChange,
-  onApplyIssue: applyIssue,
-  onDismissIssue: dismissIssue,
-  onIgnoreIssue: ignoreIssue
 });
 
 initializeDirectory();
@@ -140,16 +143,12 @@ function setStatus(message) {
   statusLabel.textContent = message ?? "";
 }
 
-function setFilePath(path) {
-  filePath = path;
+function setActiveFilePath(path) {
+  activeFilePath = path;
   activeFileLabel.textContent = path
     ? path.split("/").pop()
     : "No file selected";
   highlightActiveFile();
-  if (!isMarkdownFile(filePath)) {
-    issuesByType = { spell: [], grammar: [], llm: [] };
-    refreshIssues();
-  }
 }
 
 function setActiveDirectory(path) {
@@ -216,51 +215,6 @@ async function refreshRepoStatus() {
   setRepoStatus(result);
 }
 
-function handleEditorChange() {
-  issuesByType.llm = [];
-  scheduleChecks();
-}
-
-function scheduleChecks() {
-  if (debounceHandle) {
-    clearTimeout(debounceHandle);
-  }
-
-  if (!isMarkdownFile(filePath)) {
-    issuesByType = { spell: [], grammar: [], llm: [] };
-    refreshIssues();
-    return;
-  }
-
-  debounceHandle = setTimeout(async () => {
-    const saved = await maybeSaveActiveFile();
-    if (!saved) {
-      return;
-    }
-    const text = editor.getText();
-    const result = await correctionsService.checkCorrections({
-      text,
-      filePath
-    });
-
-    issuesByType.spell = result?.issues?.spell ?? [];
-    issuesByType.grammar = result?.issues?.grammar ?? [];
-    if (result?.errors?.grammar) {
-      setStatus(result.errors.grammar);
-    } else {
-      setStatus("");
-    }
-
-    refreshIssues();
-  }, 500);
-}
-
-function refreshIssues() {
-  const allIssues = [...issuesByType.spell, ...issuesByType.grammar, ...issuesByType.llm];
-  editor.setIssues(allIssues);
-  renderIssues(allIssues);
-}
-
 function renderIssues(issues) {
   issuesList.innerHTML = "";
 
@@ -297,11 +251,11 @@ function renderIssues(issues) {
     const acceptButton = document.createElement("button");
     acceptButton.textContent = "Apply";
     acceptButton.disabled = !issue.suggestions || issue.suggestions.length === 0;
-    acceptButton.addEventListener("click", () => applyIssue(issue));
+    acceptButton.addEventListener("click", () => issue.apply());
 
     const rejectButton = document.createElement("button");
     rejectButton.textContent = "Dismiss";
-    rejectButton.addEventListener("click", () => dismissIssue(issue));
+    rejectButton.addEventListener("click", () => issue.dismiss());
 
     const ignoreButton = document.createElement("button");
     ignoreButton.textContent = "Always Ignore";
@@ -310,7 +264,7 @@ function renderIssues(issues) {
     if (!canIgnore) {
       ignoreButton.title = "Available for spelling only";
     } else {
-      ignoreButton.addEventListener("click", () => ignoreIssue(issue));
+      ignoreButton.addEventListener("click", () => issue.ignore());
     }
     actions.appendChild(ignoreButton);
 
@@ -358,7 +312,7 @@ function renderFileList() {
 function highlightActiveFile() {
   const items = Array.from(filesList.querySelectorAll(".file-item"));
   items.forEach((item) => {
-    if (item.dataset.path === filePath) {
+    if (item.dataset.path === activeFilePath) {
       item.classList.add("active");
     } else {
       item.classList.remove("active");
@@ -371,7 +325,7 @@ async function refreshFileList() {
     filesInDirectory = [];
     renderFileList();
     setRepoStatus(null);
-    await correctionsService.setCorrectionsDirectory(null);
+    await editorComponent.setActiveDirectory(null);
     return;
   }
   const result = await fileService.listTextFiles({
@@ -394,7 +348,7 @@ async function initializeDirectory() {
       activeGlobPattern = parsed.pattern;
       activeDirectoryInputValue = parsed.display;
       setActiveDirectory(parsed.directory);
-      await correctionsService.setCorrectionsDirectory(parsed.directory);
+      await editorComponent.setActiveDirectory(parsed.directory);
       await refreshFileList();
       logStartup("Initialize directory done (last directory)");
       return;
@@ -409,7 +363,7 @@ async function initializeDirectory() {
       activeGlobPattern = parsed.pattern;
       activeDirectoryInputValue = parsed.display;
       setActiveDirectory(parsed.directory);
-      await correctionsService.setCorrectionsDirectory(parsed.directory);
+      await editorComponent.setActiveDirectory(parsed.directory);
       await refreshFileList();
       logStartup("Initialize directory done (stored input)");
       return;
@@ -423,7 +377,7 @@ async function initializeDirectory() {
       activeGlobPattern = null;
       activeDirectoryInputValue = stored;
       setActiveDirectory(stored);
-      await correctionsService.setCorrectionsDirectory(stored);
+      await editorComponent.setActiveDirectory(stored);
       await refreshFileList();
       logStartup("Initialize directory done (stored)");
       return;
@@ -435,7 +389,7 @@ async function initializeDirectory() {
     activeGlobPattern = null;
     activeDirectoryInputValue = result.path;
     setActiveDirectory(result.path);
-    await correctionsService.setCorrectionsDirectory(result.path);
+    await editorComponent.setActiveDirectory(result.path);
     await refreshFileList();
     logStartup("Initialize directory done (home)");
   }
@@ -464,116 +418,22 @@ async function applyDirectoryInput() {
   activeGlobPattern = parsed.pattern;
   activeDirectoryInputValue = parsed.display;
   setActiveDirectory(parsed.directory);
-  await correctionsService.setCorrectionsDirectory(parsed.directory);
+  await editorComponent.setActiveDirectory(parsed.directory);
   await refreshFileList();
 }
 
 async function openFile(path) {
-  if (filePath && path !== filePath) {
-    const saved = await maybeSaveActiveFile();
-    if (!saved) {
-      return;
-    }
-  }
-  const result = await fileService.readFile(path);
-  if (!result) {
-    return;
-  }
-  setFilePath(result.path);
-  editor.setText(result.content ?? "");
-  activeFileContent = result.content ?? "";
-  scheduleChecks();
+  await editorComponent.openFile(path);
 }
 
 async function handleFileDoubleClick(path) {
-  if (path === filePath) {
+  if (path === activeFilePath) {
     openRenameModal(path);
     return;
   }
   await openFile(path);
 }
 
-async function applyIssue(issue) {
-  if (!filePath) {
-    return;
-  }
-  const text = editor.getText();
-  const result = await correctionsService.applyIssue({
-    filePath,
-    text,
-    issue
-  });
-  if (result?.error) {
-    setStatus(result.error);
-    return;
-  }
-  if (typeof result?.text === "string") {
-    editor.setText(result.text);
-  }
-  if (result?.issues) {
-    issuesByType.spell = result.issues.spell ?? [];
-    issuesByType.grammar = result.issues.grammar ?? [];
-    issuesByType.llm = result.issues.llm ?? [];
-    refreshIssues();
-  } else {
-    scheduleChecks();
-  }
-}
-
-async function dismissIssue(issue) {
-  if (activeDirectory && filePath) {
-    const text = editor.getText();
-    const result = await correctionsService.addDismissedChange({
-      directory: activeDirectory,
-      filePath,
-      text,
-      issue
-    });
-    if (result?.error) {
-      setStatus(result.error);
-      return;
-    }
-    if (result?.issues) {
-      issuesByType.spell = result.issues.spell ?? [];
-      issuesByType.grammar = result.issues.grammar ?? [];
-      issuesByType.llm = result.issues.llm ?? [];
-      refreshIssues();
-      return;
-    }
-  }
-  const list = issuesByType[issue.type] ?? [];
-  issuesByType[issue.type] = list.filter((item) => item.id !== issue.id);
-  refreshIssues();
-}
-
-async function ignoreIssue(issue) {
-  if (!activeDirectory) {
-    setStatus("Select a folder to manage spelling exceptions.");
-    return;
-  }
-  const word = issue.word?.trim();
-  if (!word) {
-    return;
-  }
-  const result = await correctionsService.addSpellingException({
-    directory: activeDirectory,
-    filePath,
-    word,
-    text: editor.getText()
-  });
-  if (result?.error) {
-    setStatus(result.error);
-    return;
-  }
-  if (result?.issues) {
-    issuesByType.spell = result.issues.spell ?? [];
-    issuesByType.grammar = result.issues.grammar ?? [];
-    issuesByType.llm = result.issues.llm ?? [];
-    refreshIssues();
-    return;
-  }
-  scheduleChecks();
-}
 
 selectDirectoryButton.addEventListener("click", async () => {
   const result = await fileService.selectDirectory();
@@ -583,7 +443,7 @@ selectDirectoryButton.addEventListener("click", async () => {
   activeGlobPattern = null;
   activeDirectoryInputValue = result.path;
   setActiveDirectory(result.path);
-  await correctionsService.setCorrectionsDirectory(result.path);
+  await editorComponent.setActiveDirectory(result.path);
   await refreshFileList();
 });
 
@@ -623,61 +483,8 @@ activeDirectoryInput.addEventListener("blur", async () => {
 });
 
 analyzeButton.addEventListener("click", async () => {
-  console.log("Analyzing")
-  if (!isMarkdownFile(filePath)) {
-    setStatus("Corrections are available only for markdown files.");
-    return;
-  }
-  if (debounceHandle) {
-    clearTimeout(debounceHandle);
-    debounceHandle = null;
-  }
-  setStatus("Analyzing...");
-  const text = editor.getText();
-  const result = await correctionsService.analyzeCorrections({
-    text,
-    filePath
-  });
-  issuesByType.spell = result?.issues?.spell ?? [];
-  issuesByType.grammar = result?.issues?.grammar ?? [];
-  issuesByType.llm = [];
-  console.log("Analysis result:", result);
-
-  if (result?.errors?.grammar) {
-    setStatus(result.errors.grammar);
-  } else {
-    setStatus("Analysis complete");
-    setTimeout(() => setStatus(""), 1500);
-  }
-
-  console.debug("Analysis result:", result);
-  refreshIssues();
+  await editorComponent.analyze();
 });
-
-function isMarkdownFile(path) {
-  if (!path) {
-    return false;
-  }
-  const lower = path.toLowerCase();
-  return lower.endsWith(".md") || lower.endsWith(".markdown") || lower.endsWith(".mdx");
-}
-
-async function maybeSaveActiveFile() {
-  if (!filePath) {
-    return true;
-  }
-  const currentText = editor.getText();
-  if (currentText === activeFileContent) {
-    return true;
-  }
-  const result = await fileService.saveFile({ filePath, content: currentText });
-  if (result?.error) {
-    setStatus(result.error);
-    return false;
-  }
-  activeFileContent = currentText;
-  return true;
-}
 
 function parseDirectoryInput(value) {
   const trimmed = value.trim();
@@ -757,7 +564,7 @@ window.addEventListener("keydown", (event) => {
     if (commitModal.isOpen()) {
       return;
     }
-    if (!filePath) {
+    if (!editorComponent.getFilePath()) {
       setStatus("Select a file to commit.");
       return;
     }
