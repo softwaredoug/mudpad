@@ -81,7 +81,6 @@ directorySelector = new DirectorySelector({
   fileService,
   mountEl: directorySelectorMount,
   onChange: async ({ directory, pattern, display }) => {
-    await editorComponent.setActiveDirectory(directory ?? null);
     await refreshFileList();
   },
   onStatus: (message) => setStatus(message)
@@ -193,7 +192,6 @@ async function refreshFileList() {
   if (!activeDirectory) {
     fileList.setFiles({ files: [], activeDirectory: null });
     setRepoStatus(null);
-    await editorComponent.setActiveDirectory(null);
     return;
   }
   const activeGlobPattern = directorySelector.getActiveGlobPattern();
