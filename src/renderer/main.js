@@ -2,6 +2,7 @@ import { createEditor } from "./editor.js";
 import { FileService } from "./services/file-service.js";
 import { CorrectionsService } from "./services/corrections-service.js";
 import { EditorComponent } from "./components/editor-component.js";
+import { IssuesSidebar } from "./components/issues-sidebar.js";
 import { CommitModal } from "./modals/commit-modal.js";
 import { RepoModal } from "./modals/repo-modal.js";
 import { RenameModal } from "./modals/rename-modal.js";
@@ -40,6 +41,7 @@ let activeGlobPattern = null;
 let activeDirectoryInputValue = null;
 
 let editorComponent;
+let issuesSidebar;
 
 const editor = createEditor({
   parent: document.getElementById("editor"),
@@ -50,12 +52,22 @@ const editor = createEditor({
   onIgnoreIssue: (issue) => editorComponent?.ignoreIssue(issue)
 });
 
+issuesSidebar = new IssuesSidebar({
+  mountEl: issuesList,
+  onIssueSelect: (issue) => {
+    if (issue.range) {
+      editor.scrollTo(issue.range.start, issue.range.end);
+    }
+  },
+  onStatus: (message) => setStatus(message)
+});
+
 editorComponent = new EditorComponent({
   editor,
   fileService,
   correctionsService,
   onStatus: (message) => setStatus(message),
-  onIssuesChanged: (issues) => renderIssues(issues),
+  onIssuesChanged: (issues) => issuesSidebar.render(issues),
   onFileChanged: (path) => setActiveFilePath(path)
 });
 
@@ -215,74 +227,7 @@ async function refreshRepoStatus() {
   setRepoStatus(result);
 }
 
-function renderIssues(issues) {
-  issuesList.innerHTML = "";
 
-  if (issues.length === 0) {
-    const empty = document.createElement("div");
-    empty.textContent = "No issues";
-    issuesList.appendChild(empty);
-    return;
-  }
-
-  issues.forEach((issue) => {
-    const item = document.createElement("div");
-    item.className = "issue-item";
-    item.addEventListener("click", () => {
-      if (issue.range) {
-        editor.scrollTo(issue.range.start, issue.range.end);
-      }
-    });
-
-    const type = document.createElement("div");
-    type.className = "issue-type";
-    type.textContent = issue.type;
-
-    const message = document.createElement("div");
-    message.textContent = issue.message;
-
-    const source = document.createElement("div");
-    source.className = "issue-source";
-    source.textContent = `Source: ${issue.source ?? "unknown"}`;
-
-    const actions = document.createElement("div");
-    actions.className = "issue-actions";
-
-    const acceptButton = document.createElement("button");
-    acceptButton.textContent = "Apply";
-    acceptButton.disabled = !issue.suggestions || issue.suggestions.length === 0;
-    acceptButton.addEventListener("click", () => issue.apply());
-
-    const rejectButton = document.createElement("button");
-    rejectButton.textContent = "Dismiss";
-    rejectButton.addEventListener("click", () => issue.dismiss());
-
-    const ignoreButton = document.createElement("button");
-    ignoreButton.textContent = "Always Ignore";
-    const canIgnore = issue.type === "spell" && issue.word;
-    ignoreButton.disabled = !canIgnore;
-    if (!canIgnore) {
-      ignoreButton.title = "Available for spelling only";
-    } else {
-      ignoreButton.addEventListener("click", () => issue.ignore());
-    }
-    actions.appendChild(ignoreButton);
-
-    actions.appendChild(acceptButton);
-    actions.appendChild(rejectButton);
-
-    item.appendChild(type);
-    item.appendChild(message);
-    item.appendChild(source);
-    if (issue.suggestions?.[0]) {
-      const suggestion = document.createElement("div");
-      suggestion.textContent = `Suggestion: ${issue.suggestions[0]}`;
-      item.appendChild(suggestion);
-    }
-    item.appendChild(actions);
-    issuesList.appendChild(item);
-  });
-}
 
 function renderFileList() {
   filesList.innerHTML = "";
