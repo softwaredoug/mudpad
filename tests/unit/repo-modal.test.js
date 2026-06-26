@@ -1,9 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import fs from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { RepoModal } from "../../src/renderer/modals/repo-modal.js";
+import { createFileServiceMock } from "../helpers/service-mocks.js";
+import { loadRendererTemplates, createTemplateFetch } from "../helpers/template-mocks.js";
 
 function createDom() {
   return new JSDOM("<!doctype html><html><body></body></html>", {
@@ -16,18 +16,8 @@ describe("RepoModal", () => {
     const dom = createDom();
     const { window } = dom;
     const { document } = window;
-    const htmlPath = fileURLToPath(
-      new URL("../../src/renderer/modals/repo-modal.html", import.meta.url)
-    );
-    const html = await fs.readFile(htmlPath, "utf8");
-
-    global.fetch = async () => ({
-      ok: true,
-      status: 200,
-      async text() {
-        return html;
-      }
-    });
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
 
     let repoStatus = {
       available: true,
@@ -40,7 +30,7 @@ describe("RepoModal", () => {
       fetchError: null
     };
     let setRepoStatusArg = null;
-    const fileService = {
+    const fileService = createFileServiceMock({
       async syncWithOrigin() {
         return {
           available: true,
@@ -53,7 +43,7 @@ describe("RepoModal", () => {
           fetchError: null
         };
       }
-    };
+    });
 
     const repoModal = new RepoModal({
       mountEl: document.body,
@@ -88,24 +78,14 @@ describe("RepoModal", () => {
     const dom = createDom();
     const { window } = dom;
     const { document } = window;
-    const htmlPath = fileURLToPath(
-      new URL("../../src/renderer/modals/repo-modal.html", import.meta.url)
-    );
-    const html = await fs.readFile(htmlPath, "utf8");
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
 
-    global.fetch = async () => ({
-      ok: true,
-      status: 200,
-      async text() {
-        return html;
-      }
-    });
-
-    const fileService = {
+    const fileService = createFileServiceMock({
       async syncWithOrigin() {
         return { error: "Sync failed" };
       }
-    };
+    });
     const repoModal = new RepoModal({
       mountEl: document.body,
       window,

@@ -18,7 +18,16 @@ export function createFileServiceMock(overrides = {}) {
     async listTextFiles() {
       return { files: [], tooMany: false };
     },
+    async readFile(filePath) {
+      return { path: filePath, content: "" };
+    },
+    async saveFile() {
+      return { ok: true };
+    },
     async getGitSyncStatus() {
+      return { available: false };
+    },
+    async syncWithOrigin() {
       return { available: false };
     },
     async createNewFile() {

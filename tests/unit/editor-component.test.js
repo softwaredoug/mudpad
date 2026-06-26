@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { EditorComponent } from "../../src/renderer/components/editor-component.js";
+import { createFileServiceMock } from "../helpers/service-mocks.js";
 
 describe("EditorComponent", () => {
   it("loads a file and publishes issues after debounce", async () => {
@@ -13,14 +14,14 @@ describe("EditorComponent", () => {
       setIssues: () => {}
     };
 
-    const fileService = {
+    const fileService = createFileServiceMock({
       async readFile(path) {
         return { path, content: "Test content" };
       },
       async saveFile() {
         return { path: "/tmp/file.md" };
       }
-    };
+    });
 
     const correctionsService = {
       async setCorrectionsDirectory() {
@@ -77,14 +78,14 @@ describe("EditorComponent", () => {
       setIssues: () => {}
     };
 
-    const fileService = {
+    const fileService = createFileServiceMock({
       async readFile(path) {
         return { path, content: "teh" };
       },
       async saveFile() {
         return { path: "/tmp/file.md" };
       }
-    };
+    });
 
     const correctionsService = {
       async setCorrectionsDirectory() {
