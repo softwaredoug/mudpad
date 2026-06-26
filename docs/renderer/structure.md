@@ -38,6 +38,16 @@ Responsibilities:
 - Wraps raw issue data and proxies fields.
 - Delegates actions to `EditorComponent` (`apply()`, `dismiss()`, `ignore()`).
 
+### FileList
+
+Location: `src/renderer/components/file-list.js`
+
+Responsibilities:
+- Renders the active file list and empty state messaging.
+- Highlights the active file.
+- Emits file open events on double click.
+- Owns new file creation and new folder modal triggering.
+
 ## Modals
 
 All modals use a shared `BaseModal` to load HTML fragments and manage open/close behavior.

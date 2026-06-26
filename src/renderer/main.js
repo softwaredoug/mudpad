@@ -8,7 +8,6 @@ import { FileList } from "./components/file-list.js";
 import { CommitModal } from "./modals/commit-modal.js";
 import { RepoModal } from "./modals/repo-modal.js";
 import { RenameModal } from "./modals/rename-modal.js";
-import { NewFolderModal } from "./modals/new-folder-modal.js";
 import { DeleteModal } from "./modals/delete-modal.js";
 
 const rendererStart = performance.now();
@@ -66,7 +65,14 @@ issuesSidebar = new IssuesSidebar({
 
 fileList = new FileList({
   mountEl: filesList,
+  newFileButton,
+  newFolderButton,
+  fileService,
+  modalMount,
+  window,
   onFileDoubleClick: (path) => handleFileDoubleClick(path),
+  onFileOpen: (path) => openFile(path),
+  onRefresh: () => refreshFileList(),
   onStatus: (message) => setStatus(message)
 });
 
@@ -126,27 +132,6 @@ const renameModal = new RenameModal({
   onDelete: (targetPath) => {
     renameModal.close();
     openDeleteModal(targetPath);
-  }
-});
-
-const newFolderModal = new NewFolderModal({
-  mountEl: modalMount,
-  window,
-  onConfirm: async ({ name }) => {
-    if (!activeDirectory) {
-      newFolderModal.setError("Select a folder to create a subfolder.");
-      return;
-    }
-    const result = await fileService.createFolder({ directory: activeDirectory, name });
-    if (result?.error) {
-      newFolderModal.setError(result.error);
-      setStatus(result.error);
-      return;
-    }
-    newFolderModal.close();
-    setStatus(`Folder created: ${name}`);
-    setTimeout(() => setStatus(""), 1500);
-    await refreshFileList();
   }
 });
 
@@ -267,30 +252,6 @@ async function handleFileDoubleClick(path) {
 
 
 
-newFileButton.addEventListener("click", async () => {
-  if (!activeDirectory) {
-    setStatus("Select a folder to add a file.");
-    return;
-  }
-  const result = await fileService.createNewFile(activeDirectory);
-  if (result?.error) {
-    setStatus(result.error);
-    return;
-  }
-  if (result?.path) {
-    await openFile(result.path);
-  }
-  await refreshFileList();
-});
-
-newFolderButton.addEventListener("click", () => {
-  if (!activeDirectory) {
-    setStatus("Select a folder to add a new folder.");
-    return;
-  }
-  openNewFolderModal();
-});
-
 
 analyzeButton.addEventListener("click", async () => {
   await editorComponent.analyze();
@@ -345,10 +306,6 @@ function openDeleteModal(path) {
     requiresCommit: Boolean(repoStatus?.available),
     summary: repoStatus?.available ? buildDeleteSummary(path) : ""
   });
-}
-
-function openNewFolderModal() {
-  newFolderModal.open();
 }
 
 
