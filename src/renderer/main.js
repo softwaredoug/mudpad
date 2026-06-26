@@ -170,24 +170,6 @@ function setActiveFilePath(path) {
   fileList.setActiveFilePath(path);
 }
 
-function offsetIssues(issues, offset) {
-  if (!offset) {
-    return issues ?? [];
-  }
-  return (issues ?? []).map((issue) => {
-    if (!issue?.range) {
-      return issue;
-    }
-    return {
-      ...issue,
-      range: {
-        start: issue.range.start + offset,
-        end: issue.range.end + offset
-      }
-    };
-  });
-}
-
 function setRepoStatus(nextStatus) {
   repoStatus = nextStatus;
   if (repoModal.isReady()) {
