@@ -3,6 +3,7 @@ import { FileService } from "./services/file-service.js";
 import { CorrectionsService } from "./services/corrections-service.js";
 import { EditorComponent } from "./components/editor-component.js";
 import { IssuesSidebar } from "./components/issues-sidebar.js";
+import { DirectorySelector } from "./components/directory-selector.js";
 import { CommitModal } from "./modals/commit-modal.js";
 import { RepoModal } from "./modals/repo-modal.js";
 import { RenameModal } from "./modals/rename-modal.js";
@@ -38,10 +39,10 @@ let activeDirectory = null;
 let filesInDirectory = [];
 let repoStatus = null;
 let activeGlobPattern = null;
-let activeDirectoryInputValue = null;
 
 let editorComponent;
 let issuesSidebar;
+let directorySelector;
 
 const editor = createEditor({
   parent: document.getElementById("editor"),
@@ -69,6 +70,20 @@ editorComponent = new EditorComponent({
   onStatus: (message) => setStatus(message),
   onIssuesChanged: (issues) => issuesSidebar.render(issues),
   onFileChanged: (path) => setActiveFilePath(path)
+});
+
+directorySelector = new DirectorySelector({
+  fileService,
+  selectButton: selectDirectoryButton,
+  input: activeDirectoryInput,
+  errorLabel: directoryErrorLabel,
+  onChange: async ({ directory, pattern, display }) => {
+    activeDirectory = directory;
+    activeGlobPattern = pattern;
+    await editorComponent.setActiveDirectory(directory);
+    await refreshFileList();
+  },
+  onStatus: (message) => setStatus(message)
 });
 
 const commitModal = new CommitModal({
@@ -148,7 +163,7 @@ const deleteModal = new DeleteModal({
   }
 });
 
-initializeDirectory();
+directorySelector.initialize();
 logStartup("Renderer initialized");
 
 function setStatus(message) {
@@ -161,26 +176,6 @@ function setActiveFilePath(path) {
     ? path.split("/").pop()
     : "No file selected";
   highlightActiveFile();
-}
-
-function setActiveDirectory(path) {
-  activeDirectory = path;
-  activeDirectoryInput.value = activeDirectoryInputValue ?? path ?? "";
-  setDirectoryError("");
-  if (path) {
-    window.localStorage.setItem("activeDirectory", path);
-    if (activeDirectoryInputValue) {
-      window.localStorage.setItem("activeDirectoryInput", activeDirectoryInputValue);
-    }
-    fileService.setLastDirectory({
-      directory: path,
-      display: activeDirectoryInputValue ?? path
-    });
-  }
-}
-
-function setDirectoryError(message) {
-  directoryErrorLabel.textContent = message ?? "";
 }
 
 function offsetIssues(issues, offset) {
@@ -283,89 +278,7 @@ async function refreshFileList() {
   logStartup("File list refreshed");
 }
 
-async function initializeDirectory() {
-  logStartup("Initialize directory start");
-  const lastDirectory = await fileService.getLastDirectory();
-  if (lastDirectory?.path) {
-    const parsed = parseDirectoryInput(lastDirectory.display ?? lastDirectory.path);
-    const validation = await fileService.validateDirectory(parsed.directory);
-    if (validation?.ok) {
-      activeGlobPattern = parsed.pattern;
-      activeDirectoryInputValue = parsed.display;
-      setActiveDirectory(parsed.directory);
-      await editorComponent.setActiveDirectory(parsed.directory);
-      await refreshFileList();
-      logStartup("Initialize directory done (last directory)");
-      return;
-    }
-  }
 
-  const storedInput = window.localStorage.getItem("activeDirectoryInput");
-  if (storedInput) {
-    const parsed = parseDirectoryInput(storedInput);
-    const validation = await fileService.validateDirectory(parsed.directory);
-    if (validation?.ok) {
-      activeGlobPattern = parsed.pattern;
-      activeDirectoryInputValue = parsed.display;
-      setActiveDirectory(parsed.directory);
-      await editorComponent.setActiveDirectory(parsed.directory);
-      await refreshFileList();
-      logStartup("Initialize directory done (stored input)");
-      return;
-    }
-  }
-
-  const stored = window.localStorage.getItem("activeDirectory");
-  if (stored) {
-    const validation = await fileService.validateDirectory(stored);
-    if (validation?.ok) {
-      activeGlobPattern = null;
-      activeDirectoryInputValue = stored;
-      setActiveDirectory(stored);
-      await editorComponent.setActiveDirectory(stored);
-      await refreshFileList();
-      logStartup("Initialize directory done (stored)");
-      return;
-    }
-  }
-
-  const result = await fileService.getHomeDirectory();
-  if (result?.path) {
-    activeGlobPattern = null;
-    activeDirectoryInputValue = result.path;
-    setActiveDirectory(result.path);
-    await editorComponent.setActiveDirectory(result.path);
-    await refreshFileList();
-    logStartup("Initialize directory done (home)");
-  }
-}
-
-
-async function applyDirectoryInput() {
-  const value = activeDirectoryInput.value.trim();
-  if (!value) {
-    if (activeDirectoryInputValue) {
-      activeDirectoryInput.value = activeDirectoryInputValue;
-      setDirectoryError("");
-      return;
-    }
-    setDirectoryError("Path is required.");
-    return;
-  }
-
-  const parsed = parseDirectoryInput(value);
-  const result = await fileService.validateDirectory(parsed.directory);
-  if (!result?.ok) {
-    setDirectoryError(result?.error ?? "Directory not found.");
-    return;
-  }
-
-  activeGlobPattern = parsed.pattern;
-  activeDirectoryInputValue = parsed.display;
-  setActiveDirectory(parsed.directory);
-  await editorComponent.setActiveDirectory(parsed.directory);
-  await refreshFileList();
-}
 
 async function openFile(path) {
   await editorComponent.openFile(path);
@@ -380,17 +293,6 @@ async function handleFileDoubleClick(path) {
 }
 
 
-selectDirectoryButton.addEventListener("click", async () => {
-  const result = await fileService.selectDirectory();
-  if (!result?.path) {
-    return;
-  }
-  activeGlobPattern = null;
-  activeDirectoryInputValue = result.path;
-  setActiveDirectory(result.path);
-  await editorComponent.setActiveDirectory(result.path);
-  await refreshFileList();
-});
 
 newFileButton.addEventListener("click", async () => {
   if (!activeDirectory) {
@@ -416,37 +318,11 @@ newFolderButton.addEventListener("click", () => {
   openNewFolderModal();
 });
 
-activeDirectoryInput.addEventListener("keydown", async (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    await applyDirectoryInput();
-  }
-});
-
-activeDirectoryInput.addEventListener("blur", async () => {
-  await applyDirectoryInput();
-});
 
 analyzeButton.addEventListener("click", async () => {
   await editorComponent.analyze();
 });
 
-function parseDirectoryInput(value) {
-  const trimmed = value.trim();
-  const globIndex = trimmed.search(/[\*\?\[]/);
-  if (globIndex === -1) {
-    return { directory: trimmed, pattern: null, display: trimmed };
-  }
-
-  const separatorIndex = trimmed.lastIndexOf("/", globIndex);
-  if (separatorIndex === -1) {
-    return { directory: trimmed, pattern: null, display: trimmed };
-  }
-
-  const directory = trimmed.slice(0, separatorIndex) || "/";
-  const pattern = trimmed.slice(separatorIndex + 1);
-  return { directory, pattern, display: trimmed };
-}
 
 repoStatusButton.addEventListener("click", () => {
   if (!repoStatus?.available) {
