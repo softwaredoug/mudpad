@@ -1,57 +1,22 @@
-const templateCache = new Map();
+import { BaseComponent } from "./base-component.js";
 
 export class BaseModal {
   constructor({ mountEl, templateUrl, window }) {
-    this.mountEl = mountEl;
-    this.templateUrl = templateUrl;
+    this.component = new BaseComponent({ mountEl, templateUrl });
     this.window = window;
-    this.root = null;
-    this._readyPromise = null;
     this._bound = false;
   }
 
   async ensureReady() {
-    if (!this._readyPromise) {
-      this._readyPromise = this.loadTemplate();
-    }
-    await this._readyPromise;
-  }
-
-  async loadTemplate() {
-    const html = await this.fetchTemplate();
-    const template = this.mountEl.ownerDocument.createElement("template");
-    template.innerHTML = html.trim();
-    const element = template.content.querySelector(".modal")
-      || template.content.firstElementChild;
-    if (!element) {
-      throw new Error("Modal template is empty.");
-    }
-    this.root = element;
-    this.mountEl.appendChild(element);
+    await this.component.ensureReady();
     if (!this._bound) {
       this.bindEvents();
       this._bound = true;
     }
   }
 
-  async fetchTemplate() {
-    const key = this.templateUrl?.href ?? String(this.templateUrl);
-    if (templateCache.has(key)) {
-      return templateCache.get(key);
-    }
-    const response = await fetch(key);
-    if (!response.ok) {
-      const message = `Failed to load modal template ${key}: ${response.status}`;
-      console.error(message);
-      throw new Error(message);
-    }
-    const html = await response.text();
-    templateCache.set(key, html);
-    return html;
-  }
-
   bindEvents() {
-    const backdrop = this.root.querySelector(".modal-backdrop");
+    const backdrop = this.component.query(".modal-backdrop");
     if (backdrop) {
       backdrop.addEventListener("click", () => this.close());
     }
@@ -68,15 +33,15 @@ export class BaseModal {
   }
 
   query(selector) {
-    return this.root?.querySelector(selector) ?? null;
+    return this.component.query(selector);
   }
 
   isOpen() {
-    return Boolean(this.root && !this.root.classList.contains("hidden"));
+    return Boolean(this.component.root && !this.component.root.classList.contains("hidden"));
   }
 
   isReady() {
-    return Boolean(this.root);
+    return Boolean(this.component.root);
   }
 
   async open() {
@@ -86,15 +51,15 @@ export class BaseModal {
       console.error("Modal open failed", error);
       return;
     }
-    this.root.classList.remove("hidden");
-    this.root.setAttribute("aria-hidden", "false");
+    this.component.root.classList.remove("hidden");
+    this.component.root.setAttribute("aria-hidden", "false");
   }
 
   close() {
-    if (!this.root) {
+    if (!this.component.root) {
       return;
     }
-    this.root.classList.add("hidden");
-    this.root.setAttribute("aria-hidden", "true");
+    this.component.root.classList.add("hidden");
+    this.component.root.setAttribute("aria-hidden", "true");
   }
 }
