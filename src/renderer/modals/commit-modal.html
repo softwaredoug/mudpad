@@ -1,0 +1,19 @@
+<div id="commit-modal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="commit-title">
+    <div class="modal-header">
+      <h2 id="commit-title">Commit changes</h2>
+    </div>
+    <div class="modal-body">
+      <label class="modal-label" for="commit-summary">Summary</label>
+      <input id="commit-summary" class="modal-input" type="text" placeholder="Short commit summary" />
+      <label class="modal-label" for="commit-details">Details (optional)</label>
+      <textarea id="commit-details" class="modal-textarea" rows="4" placeholder="More detail about this change"></textarea>
+      <div id="commit-error" class="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="commit-cancel" class="button-secondary" type="button">Cancel</button>
+      <button id="commit-confirm" class="button-primary" type="button">Commit</button>
+    </div>
+  </div>
+</div>

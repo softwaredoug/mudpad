@@ -1,0 +1,24 @@
+<div id="rename-modal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+    <div class="modal-header">
+      <h2 id="rename-title">Rename file</h2>
+    </div>
+    <div class="modal-body">
+      <label class="modal-label" for="rename-input">New filename</label>
+      <input id="rename-input" class="modal-input" type="text" placeholder="new-file-name.md" />
+      <div id="rename-git-fields" class="rename-git-fields hidden">
+        <label class="modal-label" for="rename-summary">Commit summary</label>
+        <input id="rename-summary" class="modal-input" type="text" placeholder="Rename post file" />
+        <label class="modal-label" for="rename-details">Commit details (optional)</label>
+        <textarea id="rename-details" class="modal-textarea" rows="3" placeholder="Why this rename was needed"></textarea>
+      </div>
+      <div id="rename-error" class="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="rename-cancel" class="button-secondary" type="button">Cancel</button>
+      <button id="rename-delete" class="button-danger" type="button">Delete</button>
+      <button id="rename-confirm" class="button-primary" type="button">Rename</button>
+    </div>
+  </div>
+</div>

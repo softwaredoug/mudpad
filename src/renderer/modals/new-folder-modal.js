@@ -1,48 +1,41 @@
-export class NewFolderModal {
-  constructor({
-    modal,
-    nameInput,
-    errorLabel,
-    cancelButton,
-    confirmButton,
-    onConfirm
-  }) {
-    this.modal = modal;
-    this.nameInput = nameInput;
-    this.errorLabel = errorLabel;
-    this.cancelButton = cancelButton;
-    this.confirmButton = confirmButton;
+import { BaseModal } from "./base-modal.js";
+
+export class NewFolderModal extends BaseModal {
+  constructor({ mountEl, window, onConfirm }) {
+    super({
+      mountEl,
+      window,
+      templateUrl: new URL("./new-folder-modal.html?raw", import.meta.url)
+    });
     this.onConfirm = onConfirm;
-    this.bindEvents();
+    this.nameInput = null;
+    this.errorLabel = null;
+    this.cancelButton = null;
+    this.confirmButton = null;
   }
 
   bindEvents() {
+    super.bindEvents();
+    this.nameInput = this.query("#new-folder-name");
+    this.errorLabel = this.query("#new-folder-error");
+    this.cancelButton = this.query("#new-folder-cancel");
+    this.confirmButton = this.query("#new-folder-confirm");
+
     this.cancelButton.addEventListener("click", () => this.close());
     this.confirmButton.addEventListener("click", () => this.handleConfirm());
-    this.modal.addEventListener("click", (event) => {
-      if (event.target.classList.contains("modal-backdrop")) {
-        this.close();
-      }
-    });
   }
 
-  open() {
-    this.modal.classList.remove("hidden");
-    this.modal.setAttribute("aria-hidden", "false");
+  async open() {
+    await super.open();
     this.nameInput.value = "";
     this.setError("");
     this.nameInput.focus();
   }
 
   close() {
-    this.modal.classList.add("hidden");
-    this.modal.setAttribute("aria-hidden", "true");
+    super.close();
     this.nameInput.value = "";
     this.setError("");
-  }
-
-  isOpen() {
-    return !this.modal.classList.contains("hidden");
   }
 
   setError(message) {

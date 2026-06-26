@@ -1,38 +1,37 @@
-export class DeleteModal {
-  constructor({
-    modal,
-    fileNameLabel,
-    gitFields,
-    summaryInput,
-    detailsInput,
-    errorLabel,
-    cancelButton,
-    confirmButton,
-    onConfirm
-  }) {
-    this.modal = modal;
-    this.fileNameLabel = fileNameLabel;
-    this.gitFields = gitFields;
-    this.summaryInput = summaryInput;
-    this.detailsInput = detailsInput;
-    this.errorLabel = errorLabel;
-    this.cancelButton = cancelButton;
-    this.confirmButton = confirmButton;
+import { BaseModal } from "./base-modal.js";
+
+export class DeleteModal extends BaseModal {
+  constructor({ mountEl, window, onConfirm }) {
+    super({
+      mountEl,
+      window,
+      templateUrl: new URL("./delete-modal.html?raw", import.meta.url)
+    });
     this.onConfirm = onConfirm;
+    this.fileNameLabel = null;
+    this.gitFields = null;
+    this.summaryInput = null;
+    this.detailsInput = null;
+    this.errorLabel = null;
+    this.cancelButton = null;
+    this.confirmButton = null;
     this.targetPath = null;
     this.requiresCommit = false;
     this.summaryAuto = false;
-    this.bindEvents();
   }
 
   bindEvents() {
+    super.bindEvents();
+    this.fileNameLabel = this.query("#delete-file-name");
+    this.gitFields = this.query("#delete-git-fields");
+    this.summaryInput = this.query("#delete-summary");
+    this.detailsInput = this.query("#delete-details");
+    this.errorLabel = this.query("#delete-error");
+    this.cancelButton = this.query("#delete-cancel");
+    this.confirmButton = this.query("#delete-confirm");
+
     this.cancelButton.addEventListener("click", () => this.close());
     this.confirmButton.addEventListener("click", () => this.handleConfirm());
-    this.modal.addEventListener("click", (event) => {
-      if (event.target.classList.contains("modal-backdrop")) {
-        this.close();
-      }
-    });
     this.summaryInput.addEventListener("input", () => {
       if (!this.requiresCommit) {
         return;
@@ -41,13 +40,12 @@ export class DeleteModal {
     });
   }
 
-  open({ path, requiresCommit, summary }) {
+  async open({ path, requiresCommit, summary }) {
+    await super.open();
     this.targetPath = path;
     this.requiresCommit = Boolean(requiresCommit);
     this.summaryAuto = this.requiresCommit;
     this.gitFields.classList.toggle("hidden", !this.requiresCommit);
-    this.modal.classList.remove("hidden");
-    this.modal.setAttribute("aria-hidden", "false");
     this.fileNameLabel.textContent = path
       ? `Delete ${path.split("/").pop()}`
       : "Delete file";
@@ -62,16 +60,11 @@ export class DeleteModal {
   }
 
   close() {
-    this.modal.classList.add("hidden");
-    this.modal.setAttribute("aria-hidden", "true");
+    super.close();
     this.targetPath = null;
     this.requiresCommit = false;
     this.summaryAuto = false;
     this.setError("");
-  }
-
-  isOpen() {
-    return !this.modal.classList.contains("hidden");
   }
 
   setError(message) {

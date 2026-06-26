@@ -15,6 +15,7 @@ const logStartup = (message) => {
 
 const fileService = new FileService();
 const correctionsService = new CorrectionsService();
+const modalMount = document.body;
 
 const selectDirectoryButton = document.getElementById("select-directory-button");
 const analyzeButton = document.getElementById("analyze-button");
@@ -26,43 +27,9 @@ const issuesList = document.getElementById("issues-list");
 const filesList = document.getElementById("files-list");
 const newFileButton = document.getElementById("new-file-button");
 const newFolderButton = document.getElementById("new-folder-button");
-const commitModalElement = document.getElementById("commit-modal");
-const commitSummaryInput = document.getElementById("commit-summary");
-const commitDetailsInput = document.getElementById("commit-details");
-const commitCancelButton = document.getElementById("commit-cancel");
-const commitConfirmButton = document.getElementById("commit-confirm");
-const commitErrorLabel = document.getElementById("commit-error");
 const repoStatusButton = document.getElementById("repo-status");
 const repoStatusDot = document.getElementById("repo-status-dot");
 const repoStatusLabel = document.getElementById("repo-status-label");
-const repoModalElement = document.getElementById("repo-modal");
-const repoStatusSummary = document.getElementById("repo-status-summary");
-const repoStatusDetails = document.getElementById("repo-status-details");
-const repoStatusError = document.getElementById("repo-status-error");
-const repoCloseButton = document.getElementById("repo-close");
-const repoSyncButton = document.getElementById("repo-sync");
-const renameModalElement = document.getElementById("rename-modal");
-const renameInput = document.getElementById("rename-input");
-const renameGitFields = document.getElementById("rename-git-fields");
-const renameSummaryInput = document.getElementById("rename-summary");
-const renameDetailsInput = document.getElementById("rename-details");
-const renameCancelButton = document.getElementById("rename-cancel");
-const renameDeleteButton = document.getElementById("rename-delete");
-const renameConfirmButton = document.getElementById("rename-confirm");
-const renameErrorLabel = document.getElementById("rename-error");
-const deleteModalElement = document.getElementById("delete-modal");
-const deleteFileName = document.getElementById("delete-file-name");
-const deleteGitFields = document.getElementById("delete-git-fields");
-const deleteSummaryInput = document.getElementById("delete-summary");
-const deleteDetailsInput = document.getElementById("delete-details");
-const deleteCancelButton = document.getElementById("delete-cancel");
-const deleteConfirmButton = document.getElementById("delete-confirm");
-const deleteErrorLabel = document.getElementById("delete-error");
-const newFolderModalElement = document.getElementById("new-folder-modal");
-const newFolderNameInput = document.getElementById("new-folder-name");
-const newFolderErrorLabel = document.getElementById("new-folder-error");
-const newFolderCancelButton = document.getElementById("new-folder-cancel");
-const newFolderConfirmButton = document.getElementById("new-folder-confirm");
 
 let filePath = null;
 let activeDirectory = null;
@@ -79,83 +46,30 @@ let activeDirectoryInputValue = null;
 let activeFileContent = "";
 
 const commitModal = new CommitModal({
-  modal: commitModalElement,
-  summaryInput: commitSummaryInput,
-  detailsInput: commitDetailsInput,
-  errorLabel: commitErrorLabel,
-  cancelButton: commitCancelButton,
-  confirmButton: commitConfirmButton,
-  onConfirm: async ({ summary, details }) => {
-    if (!filePath) {
-      commitModal.setError("Select a file to commit.");
-      return;
-    }
-    setStatus("Committing...");
-    const result = await fileService.saveAndCommit({
-      path: filePath,
-      content: editor.getText(),
-      messageShort: summary,
-      messageLong: details
-    });
-    if (result?.error) {
-      setStatus(result.error);
-      commitModal.setError(result.error);
-      return;
-    }
-    commitModal.close();
-    setStatus("Committed");
-    setTimeout(() => setStatus(""), 1500);
-    await refreshRepoStatus();
-  }
+  mountEl: modalMount,
+  window,
+  fileService,
+  getFilePath: () => filePath,
+  getEditorText: () => editor.getText(),
+  setStatus: (message) => setStatus(message),
+  refreshRepoStatus: () => refreshRepoStatus()
 });
 
 const repoModal = new RepoModal({
-  modal: repoModalElement,
-  statusSummary: repoStatusSummary,
-  statusDetails: repoStatusDetails,
-  errorLabel: repoStatusError,
-  closeButton: repoCloseButton,
-  syncButton: repoSyncButton,
-  onSync: async () => {
-    if (!repoStatus?.available) {
-      return;
-    }
-    repoModal.setError("");
-    repoModal.setSyncing(true);
-    const result = await fileService.syncWithOrigin(activeDirectory);
-    repoModal.setSyncing(false);
-    if (result?.error) {
-      repoModal.setError(result.error);
-      return;
-    }
-    setRepoStatus(result);
-    renderRepoStatusDetails();
-  }
+  mountEl: modalMount,
+  window,
+  fileService,
+  getRepoStatus: () => repoStatus,
+  setRepoStatus: (status) => setRepoStatus(status),
+  getActiveDirectory: () => activeDirectory
 });
 
 const renameModal = new RenameModal({
-  modal: renameModalElement,
-  nameInput: renameInput,
-  gitFields: renameGitFields,
-  summaryInput: renameSummaryInput,
-  detailsInput: renameDetailsInput,
-  errorLabel: renameErrorLabel,
-  cancelButton: renameCancelButton,
-  confirmButton: renameConfirmButton,
-  deleteButton: renameDeleteButton,
+  mountEl: modalMount,
+  window,
+  fileService,
   buildSummary: buildRenameSummary,
-  onConfirm: async ({ oldPath, newName, summary, details }) => {
-    const result = await fileService.renameFile({
-      oldPath,
-      newName,
-      messageShort: summary,
-      messageLong: details
-    });
-    if (result?.error) {
-      renameModal.setError(result.error);
-      return;
-    }
-    renameModal.close();
+  onConfirm: async ({ result }) => {
     if (result?.path) {
       await openFile(result.path);
     }
@@ -169,11 +83,8 @@ const renameModal = new RenameModal({
 });
 
 const newFolderModal = new NewFolderModal({
-  modal: newFolderModalElement,
-  nameInput: newFolderNameInput,
-  errorLabel: newFolderErrorLabel,
-  cancelButton: newFolderCancelButton,
-  confirmButton: newFolderConfirmButton,
+  mountEl: modalMount,
+  window,
   onConfirm: async ({ name }) => {
     if (!activeDirectory) {
       newFolderModal.setError("Select a folder to create a subfolder.");
@@ -193,14 +104,8 @@ const newFolderModal = new NewFolderModal({
 });
 
 const deleteModal = new DeleteModal({
-  modal: deleteModalElement,
-  fileNameLabel: deleteFileName,
-  gitFields: deleteGitFields,
-  summaryInput: deleteSummaryInput,
-  detailsInput: deleteDetailsInput,
-  errorLabel: deleteErrorLabel,
-  cancelButton: deleteCancelButton,
-  confirmButton: deleteConfirmButton,
+  mountEl: modalMount,
+  window,
   onConfirm: async ({ filePath, messageShort, messageLong }) => {
     const result = await fileService.deleteFile({
       filePath,
@@ -287,6 +192,9 @@ function offsetIssues(issues, offset) {
 
 function setRepoStatus(nextStatus) {
   repoStatus = nextStatus;
+  if (repoModal.isReady()) {
+    repoModal.renderStatus(repoStatus);
+  }
   if (!repoStatus?.available) {
     repoStatusButton.classList.add("hidden");
     return;
@@ -827,7 +735,6 @@ function buildDeleteSummary(path) {
 }
 
 function openRepoModal() {
-  renderRepoStatusDetails();
   repoModal.open();
 }
 
@@ -843,34 +750,6 @@ function openNewFolderModal() {
   newFolderModal.open();
 }
 
-function renderRepoStatusDetails() {
-  if (!repoStatus?.available) {
-    repoModal.setStatus({ summary: "No git repository detected.", details: "" });
-    repoModal.setSyncDisabled(true);
-    return;
-  }
-
-  const statusLine = repoStatus.statusSummary || "";
-  const upstreamText = repoStatus.upstream || "No upstream configured";
-  const syncLine = repoStatus.upstream
-    ? `Ahead ${repoStatus.ahead}, behind ${repoStatus.behind}`
-    : "Upstream not set";
-  const cleanLine = repoStatus.dirty ? "Working tree: dirty" : "Working tree: clean";
-  const fetchLine = repoStatus.fetchError ? `Fetch: ${repoStatus.fetchError}` : "Fetch: ok";
-
-  repoModal.setStatus({
-    summary: statusLine,
-    details: [
-      `Branch: ${repoStatus.branch || "unknown"}`,
-      `Upstream: ${upstreamText}`,
-      syncLine,
-      cleanLine,
-      fetchLine
-    ].join("\n")
-  });
-
-  repoModal.setSyncDisabled(!repoStatus.upstream);
-}
 
 window.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
@@ -883,30 +762,5 @@ window.addEventListener("keydown", (event) => {
       return;
     }
     openCommitModal();
-  }
-  if (event.key === "Escape" && commitModal.isOpen()) {
-    commitModal.close();
-  }
-  if (event.key === "Escape" && repoModal.isOpen()) {
-    repoModal.close();
-  }
-  if (event.key === "Escape" && renameModal.isOpen()) {
-    renameModal.close();
-  }
-  if (event.key === "Escape" && deleteModal.isOpen()) {
-    deleteModal.close();
-  }
-  if (event.key === "Escape" && newFolderModal.isOpen()) {
-    newFolderModal.close();
-  }
-});
-
-
-window.addEventListener("keydown", (event) => {
-  if (commitModal.isOpen() && (event.metaKey || event.ctrlKey)) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commitModal.confirm();
-    }
   }
 });

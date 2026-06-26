@@ -1,0 +1,22 @@
+<div id="delete-modal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+    <div class="modal-header">
+      <h2 id="delete-title">Delete file</h2>
+    </div>
+    <div class="modal-body">
+      <div id="delete-file-name" class="repo-status-summary"></div>
+      <div id="delete-git-fields" class="rename-git-fields hidden">
+        <label class="modal-label" for="delete-summary">Commit summary</label>
+        <input id="delete-summary" class="modal-input" type="text" placeholder="Deleted file" />
+        <label class="modal-label" for="delete-details">Commit details (optional)</label>
+        <textarea id="delete-details" class="modal-textarea" rows="3" placeholder="Why this delete was needed"></textarea>
+      </div>
+      <div id="delete-error" class="modal-error"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="delete-cancel" class="button-secondary" type="button">Cancel</button>
+      <button id="delete-confirm" class="button-primary" type="button">Confirm</button>
+    </div>
+  </div>
+</div>

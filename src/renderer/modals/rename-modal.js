@@ -1,45 +1,43 @@
-export class RenameModal {
-  constructor({
-    modal,
-    nameInput,
-    gitFields,
-    summaryInput,
-    detailsInput,
-    errorLabel,
-    cancelButton,
-    confirmButton,
-    deleteButton,
-    buildSummary,
-    onConfirm,
-    onDelete
-  }) {
-    this.modal = modal;
-    this.nameInput = nameInput;
-    this.gitFields = gitFields;
-    this.summaryInput = summaryInput;
-    this.detailsInput = detailsInput;
-    this.errorLabel = errorLabel;
-    this.cancelButton = cancelButton;
-    this.confirmButton = confirmButton;
-    this.deleteButton = deleteButton;
+import { BaseModal } from "./base-modal.js";
+
+export class RenameModal extends BaseModal {
+  constructor({ mountEl, window, fileService, buildSummary, onConfirm, onDelete }) {
+    super({
+      mountEl,
+      window,
+      templateUrl: new URL("./rename-modal.html?raw", import.meta.url)
+    });
+    this.fileService = fileService;
     this.buildSummary = buildSummary;
     this.onConfirm = onConfirm;
     this.onDelete = onDelete;
+    this.nameInput = null;
+    this.gitFields = null;
+    this.summaryInput = null;
+    this.detailsInput = null;
+    this.errorLabel = null;
+    this.cancelButton = null;
+    this.confirmButton = null;
+    this.deleteButton = null;
     this.targetPath = null;
     this.requiresCommit = false;
     this.summaryAuto = false;
-    this.bindEvents();
   }
 
   bindEvents() {
+    super.bindEvents();
+    this.nameInput = this.query("#rename-input");
+    this.gitFields = this.query("#rename-git-fields");
+    this.summaryInput = this.query("#rename-summary");
+    this.detailsInput = this.query("#rename-details");
+    this.errorLabel = this.query("#rename-error");
+    this.cancelButton = this.query("#rename-cancel");
+    this.confirmButton = this.query("#rename-confirm");
+    this.deleteButton = this.query("#rename-delete");
+
     this.cancelButton.addEventListener("click", () => this.close());
     this.confirmButton.addEventListener("click", () => this.handleConfirm());
     this.deleteButton.addEventListener("click", () => this.handleDelete());
-    this.modal.addEventListener("click", (event) => {
-      if (event.target.classList.contains("modal-backdrop")) {
-        this.close();
-      }
-    });
     this.nameInput.addEventListener("input", () => {
       if (!this.requiresCommit) {
         return;
@@ -57,12 +55,11 @@ export class RenameModal {
     });
   }
 
-  open({ path, requiresCommit }) {
+  async open({ path, requiresCommit }) {
+    await super.open();
     this.targetPath = path;
     this.requiresCommit = Boolean(requiresCommit);
     this.gitFields.classList.toggle("hidden", !this.requiresCommit);
-    this.modal.classList.remove("hidden");
-    this.modal.setAttribute("aria-hidden", "false");
     this.nameInput.value = path?.split("/").pop() ?? "";
     this.summaryInput.value = this.requiresCommit
       ? this.buildSummary(path, this.nameInput.value)
@@ -75,16 +72,11 @@ export class RenameModal {
   }
 
   close() {
-    this.modal.classList.add("hidden");
-    this.modal.setAttribute("aria-hidden", "true");
+    super.close();
     this.targetPath = null;
     this.requiresCommit = false;
     this.summaryAuto = false;
     this.setError("");
-  }
-
-  isOpen() {
-    return !this.modal.classList.contains("hidden");
   }
 
   setError(message) {
@@ -108,13 +100,20 @@ export class RenameModal {
       return;
     }
     this.setError("");
-    await this.onConfirm({
+    const result = await this.fileService.renameFile({
       oldPath: this.targetPath,
       newName,
-      summary,
-      details,
-      requiresCommit: this.requiresCommit
+      messageShort: summary,
+      messageLong: details
     });
+    if (result?.error) {
+      this.setError(result.error);
+      return;
+    }
+    this.close();
+    if (this.onConfirm) {
+      await this.onConfirm({ result });
+    }
   }
 
   handleDelete() {
