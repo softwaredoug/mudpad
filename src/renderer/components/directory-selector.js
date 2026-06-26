@@ -1,43 +1,58 @@
+import { BaseComponent } from "../modals/base-component.js";
+
 export class DirectorySelector {
-  constructor({
-    fileService,
-    selectButton,
-    input,
-    errorLabel,
-    onChange,
-    onStatus,
-    storage = window.localStorage
-  }) {
+  constructor({ fileService, mountEl, onChange, onStatus, storage = window.localStorage }) {
+    this.base = new BaseComponent({
+      mountEl,
+      templateUrl: new URL("./directory-selector.html?raw", import.meta.url)
+    });
     this.fileService = fileService;
-    this.selectButton = selectButton;
-    this.input = input;
-    this.errorLabel = errorLabel;
     this.onChange = onChange ?? (() => {});
     this.onStatus = onStatus ?? (() => {});
     this.storage = storage;
-    this.activeDirectory = null;
     this.state = { directory: null, pattern: null, display: "" };
-    this.bindEvents();
+    this.input = null;
+    this.errorLabel = null;
+    this.selectButton = null;
+    this._bound = false;
   }
 
-  bindEvents() {
-    this.selectButton.addEventListener("click", () => this.handleSelectClick());
-    this.input.addEventListener("keydown", async (event) => {
+  async ensureReady() {
+    await this.base.ensureReady();
+    if (this._bound) {
+      return;
+    }
+    this.input = this.base.query(".active-directory");
+    this.errorLabel = this.base.query(".directory-error");
+    this.selectButton = this.base.query(".select-directory-button");
+
+    this.selectButton?.addEventListener("click", () => this.handleSelectClick());
+    this.input?.addEventListener("keydown", async (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
         await this.applyInput();
       }
     });
-    this.input.addEventListener("blur", async () => {
+    this.input?.addEventListener("blur", async () => {
       await this.applyInput();
     });
+    this._bound = true;
   }
 
   getState() {
     return { ...this.state };
   }
 
+  getActiveDirectory() {
+    return this.state.directory;
+  }
+
+  getActiveGlobPattern() {
+    return this.state.pattern;
+  }
+
   async initialize() {
+    await this.ensureReady();
     const lastDirectory = await this.fileService.getLastDirectory();
     if (lastDirectory?.path) {
       const parsed = this.parseDirectoryInput(lastDirectory.display ?? lastDirectory.path);
@@ -74,6 +89,7 @@ export class DirectorySelector {
   }
 
   async handleSelectClick() {
+    await this.ensureReady();
     const result = await this.fileService.selectDirectory();
     if (!result?.path) {
       return;
@@ -82,6 +98,7 @@ export class DirectorySelector {
   }
 
   async applyInput() {
+    await this.ensureReady();
     const value = this.input.value.trim();
     if (!value) {
       if (this.state.display) {
@@ -109,7 +126,6 @@ export class DirectorySelector {
     this.setError("");
     if (nextState.directory) {
       this.storage.setItem("activeDirectory", nextState.directory);
-      this.activeDirectory = nextState.directory;
       if (nextState.display) {
         this.storage.setItem("activeDirectoryInput", nextState.display);
       }
@@ -122,6 +138,9 @@ export class DirectorySelector {
   }
 
   setError(message) {
+    if (!this.errorLabel) {
+      return;
+    }
     this.errorLabel.textContent = message ?? "";
   }
 

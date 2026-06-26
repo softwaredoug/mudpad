@@ -20,13 +20,11 @@ const fileService = new FileService();
 const correctionsService = new CorrectionsService();
 const modalMount = document.body;
 
-const selectDirectoryButton = document.getElementById("select-directory-button");
 const analyzeButton = document.getElementById("analyze-button");
-const activeDirectoryInput = document.getElementById("active-directory");
-const directoryErrorLabel = document.getElementById("directory-error");
+const directorySelectorMount = document.getElementById("directory-selector");
 const activeFileLabel = document.getElementById("active-file");
 const statusLabel = document.getElementById("status");
-const issuesList = document.getElementById("issues-list");
+const issuesPanel = document.getElementById("issues-panel");
 const filesPanel = document.getElementById("files-panel");
 const repoStatusButton = document.getElementById("repo-status");
 const repoStatusDot = document.getElementById("repo-status-dot");
@@ -50,7 +48,7 @@ const editor = createEditor({
 });
 
 issuesSidebar = new IssuesSidebar({
-  mountEl: issuesList,
+  mountEl: issuesPanel,
   onIssueSelect: (issue) => {
     if (issue.range) {
       editor.scrollTo(issue.range.start, issue.range.end);
@@ -81,10 +79,9 @@ editorComponent = new EditorComponent({
 
 directorySelector = new DirectorySelector({
   fileService,
-  selectButton: selectDirectoryButton,
-  input: activeDirectoryInput,
-  errorLabel: directoryErrorLabel,
+  mountEl: directorySelectorMount,
   onChange: async ({ directory, pattern, display }) => {
+    await editorComponent.setActiveDirectory(directory ?? null);
     await refreshFileList();
   },
   onStatus: (message) => setStatus(message)
@@ -147,6 +144,7 @@ const deleteModal = new DeleteModal({
 });
 
 fileList.ensureReady();
+directorySelector.ensureReady();
 directorySelector.initialize();
 logStartup("Renderer initialized");
 
@@ -195,6 +193,7 @@ async function refreshFileList() {
   if (!activeDirectory) {
     fileList.setFiles({ files: [], activeDirectory: null });
     setRepoStatus(null);
+    await editorComponent.setActiveDirectory(null);
     return;
   }
   const activeGlobPattern = directorySelector.getActiveGlobPattern();

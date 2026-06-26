@@ -38,6 +38,15 @@ Responsibilities:
 - Wraps raw issue data and proxies fields.
 - Delegates actions to `EditorComponent` (`apply()`, `dismiss()`, `ignore()`).
 
+### DirectorySelector
+
+Location: `src/renderer/components/directory-selector.js`
+
+Responsibilities:
+- Loads its own HTML fragment via `BaseComponent`.
+- Manages directory selection, validation, and persistence.
+- Emits directory/glob changes and status updates.
+
 ### FileList
 
 Location: `src/renderer/components/file-list.js`
@@ -48,6 +57,14 @@ Responsibilities:
 - Emits file open events on double click.
 - Owns new file creation and new folder modal triggering.
 - Loads its own HTML fragment via `BaseComponent`.
+
+### IssuesSidebar
+
+Location: `src/renderer/components/issues-sidebar.js`
+
+Responsibilities:
+- Loads its own HTML fragment via `BaseComponent`.
+- Renders issue list, empty state, and action buttons.
 
 ## Modals
 

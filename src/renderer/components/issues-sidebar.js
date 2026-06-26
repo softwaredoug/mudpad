@@ -1,18 +1,39 @@
+import { BaseComponent } from "../modals/base-component.js";
+
 export class IssuesSidebar {
   constructor({ mountEl, onIssueSelect, onStatus }) {
-    this.mountEl = mountEl;
+    this.base = new BaseComponent({
+      mountEl,
+      templateUrl: new URL("./issues-sidebar.html?raw", import.meta.url)
+    });
     this.document = mountEl?.ownerDocument ?? document;
     this.onIssueSelect = onIssueSelect ?? (() => {});
     this.onStatus = onStatus ?? (() => {});
+    this.listEl = null;
+    this._bound = false;
+  }
+
+  async ensureReady() {
+    await this.base.ensureReady();
+    if (this._bound) {
+      return;
+    }
+    this.listEl = this.base.query(".issues-list");
+    this._bound = true;
   }
 
   render(issues) {
-    this.mountEl.innerHTML = "";
+    if (!this.listEl) {
+      void this.ensureReady().then(() => this.render(issues));
+      return;
+    }
+
+    this.listEl.innerHTML = "";
 
     if (!issues?.length) {
       const empty = this.document.createElement("div");
       empty.textContent = "No issues";
-      this.mountEl.appendChild(empty);
+      this.listEl.appendChild(empty);
       return;
     }
 
@@ -76,7 +97,7 @@ export class IssuesSidebar {
         item.appendChild(suggestion);
       }
       item.appendChild(actions);
-      this.mountEl.appendChild(item);
+      this.listEl.appendChild(item);
     });
   }
 

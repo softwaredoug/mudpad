@@ -1,12 +1,29 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
+import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { DirectorySelector } from "../../src/renderer/components/directory-selector.js";
 
 describe("DirectorySelector", () => {
   it("emits onChange when selecting a directory", async () => {
-    const dom = new JSDOM("<!doctype html><html><body><input id=\"dir\" /><div id=\"err\"></div><button id=\"btn\"></button></body></html>");
+    const dom = new JSDOM("<!doctype html><html><body><div id=\"mount\"></div></body></html>", {
+      url: "http://localhost/"
+    });
     const { document } = dom.window;
+    const mountEl = document.getElementById("mount");
+
+    const htmlPath = fileURLToPath(
+      new URL("../../src/renderer/components/directory-selector.html", import.meta.url)
+    );
+    const html = await fs.readFile(htmlPath, "utf8");
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      async text() {
+        return html;
+      }
+    });
 
     const fileService = {
       async selectDirectory() {
@@ -29,9 +46,7 @@ describe("DirectorySelector", () => {
     let changePayload = null;
     const selector = new DirectorySelector({
       fileService,
-      selectButton: document.getElementById("btn"),
-      input: document.getElementById("dir"),
-      errorLabel: document.getElementById("err"),
+      mountEl,
       onChange: (payload) => {
         changePayload = payload;
       },
@@ -42,6 +57,7 @@ describe("DirectorySelector", () => {
       }
     });
 
+    await selector.ensureReady();
     await selector.handleSelectClick();
 
     assert.deepEqual(changePayload, {
@@ -52,8 +68,23 @@ describe("DirectorySelector", () => {
   });
 
   it("parses glob input and validates", async () => {
-    const dom = new JSDOM("<!doctype html><html><body><input id=\"dir\" /><div id=\"err\"></div><button id=\"btn\"></button></body></html>");
+    const dom = new JSDOM("<!doctype html><html><body><div id=\"mount\"></div></body></html>", {
+      url: "http://localhost/"
+    });
     const { document } = dom.window;
+    const mountEl = document.getElementById("mount");
+
+    const htmlPath = fileURLToPath(
+      new URL("../../src/renderer/components/directory-selector.html", import.meta.url)
+    );
+    const html = await fs.readFile(htmlPath, "utf8");
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      async text() {
+        return html;
+      }
+    });
 
     const fileService = {
       async selectDirectory() {
@@ -76,9 +107,7 @@ describe("DirectorySelector", () => {
     let changePayload = null;
     const selector = new DirectorySelector({
       fileService,
-      selectButton: document.getElementById("btn"),
-      input: document.getElementById("dir"),
-      errorLabel: document.getElementById("err"),
+      mountEl,
       onChange: (payload) => {
         changePayload = payload;
       },
@@ -89,7 +118,9 @@ describe("DirectorySelector", () => {
       }
     });
 
-    document.getElementById("dir").value = "/tmp/posts/**/*.md";
+    await selector.ensureReady();
+    const input = mountEl.querySelector(".active-directory");
+    input.value = "/tmp/posts/**/*.md";
     await selector.applyInput();
 
     assert.deepEqual(changePayload, {

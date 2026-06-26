@@ -10,16 +10,7 @@
     <div id="app">
       <header class="toolbar">
         <div class="toolbar-left">
-          <button id="select-directory-button">Select Folder</button>
-          <div class="directory-input">
-            <input
-              id="active-directory"
-              class="active-directory"
-              type="text"
-              placeholder="Type a folder path"
-            />
-            <div id="directory-error" class="directory-error"></div>
-          </div>
+          <div id="directory-selector"></div>
         </div>
         <div class="toolbar-right">
           <span id="active-file" class="active-file">No file selected</span>
@@ -30,10 +21,7 @@
       <div class="content">
         <aside id="files-panel"></aside>
         <div id="editor" class="editor"></div>
-        <aside id="issues-panel" class="issues-panel">
-          <div class="issues-header">Issues</div>
-          <div id="issues-list" class="issues-list"></div>
-        </aside>
+        <aside id="issues-panel"></aside>
       </div>
       <footer class="legend">
         <div class="legend-items">
