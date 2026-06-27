@@ -1,12 +1,36 @@
+function trackCalls(fn) {
+  function wrapped(...args) {
+    wrapped.calls.push(args);
+    return fn(...args);
+  }
+  wrapped.calls = wrapped.calls || [];
+  return wrapped
+}
+
+
+function wrapAllFunctions(obj) {
+  const wrapped = {};
+  for (const key of Object.keys(obj)) {
+    if (typeof obj[key] === "function") {
+      wrapped[key] = trackCalls(obj[key]);
+    } else {
+      wrapped[key] = obj[key];
+    }
+  }
+  return wrapped;
+}
+
+
+
 export function createFileServiceMock(overrides = {}) {
-  return {
+  var mock = {
     async selectDirectory() {
       return { path: null };
     },
     async getLastDirectory() {
       return { path: null };
     },
-    async validateDirectory() {
+    async validateDirectory(directory) {
       return { ok: true };
     },
     async getHomeDirectory() {
@@ -15,7 +39,7 @@ export function createFileServiceMock(overrides = {}) {
     async setLastDirectory() {
       return { ok: true };
     },
-    async listTextFiles() {
+    async listTextFiles(payload) {
       return { files: [], tooMany: false };
     },
     async readFile(filePath) {
@@ -30,24 +54,25 @@ export function createFileServiceMock(overrides = {}) {
     async syncWithOrigin() {
       return { available: false };
     },
-    async createNewFile() {
+    async createNewFile(directory) {
       return { path: null };
     },
-    async createFolder() {
+    async createFolder(payload) {
       return { ok: true };
     },
-    async deleteFile() {
+    async deleteFile(payload) {
       return { ok: true };
     },
-    async renameFile() {
+    async renameFile(payload) {
       return { ok: true };
     },
     ...overrides
   };
+  return wrapAllFunctions(mock);
 }
 
 export function createCorrectionsServiceMock(overrides = {}) {
-  return {
+  var mock = {
     async setCorrectionsDirectory() {
       return { ok: true };
     },
@@ -68,6 +93,7 @@ export function createCorrectionsServiceMock(overrides = {}) {
     },
     ...overrides
   };
+  return wrapAllFunctions(mock);
 }
 
 export function createEditorMock(overrides = {}) {
