@@ -35,10 +35,11 @@
     "appId": "com.editor.llmfeedback",
     "productName": "MudPad",
     "directories": {
-      "buildResources": "resources"
+      "buildResources": "resources",
+      "output": "release"
     },
     "files": [
-      "dist/**",
+      "dist/renderer/**",
       "src/main/**",
       "package.json"
     ],
