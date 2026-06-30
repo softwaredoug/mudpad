@@ -63,7 +63,8 @@ export class AppComponent {
       onChange: () => this.editorComponent?.handleEditorChange(),
       onApplyIssue: (issue) => this.editorComponent?.applyIssue(issue),
       onDismissIssue: (issue) => this.editorComponent?.dismissIssue(issue),
-      onIgnoreIssue: (issue) => this.editorComponent?.ignoreIssue(issue)
+      onIgnoreIssue: (issue) => this.editorComponent?.ignoreIssue(issue),
+      onDisabledDblClick: () => this.editorComponent?.handleDisabledDblClick()
     });
 
     this.issuesSidebar = new IssuesSidebar({
@@ -82,7 +83,8 @@ export class AppComponent {
       correctionsService: this.correctionsService,
       onStatus: (message) => this.setStatus(statusLabel, message),
       onIssuesChanged: (issues) => this.issuesSidebar.render(issues),
-      onFileChanged: (path) => this.setActiveFilePath(activeFileLabel, path)
+      onFileChanged: (path) => this.setActiveFilePath(activeFileLabel, path),
+      onDisabledDblClick: () => this.fileList?.createNewFile()
     });
 
     this.fileList = new FileList({

@@ -191,7 +191,15 @@ function createIssuesTooltip({ onApplyIssue, onDismissIssue, onIgnoreIssue } = {
   });
 }
 
-export function createEditor({ parent, initialText, onChange, onApplyIssue, onDismissIssue, onIgnoreIssue }) {
+export function createEditor({
+  parent,
+  initialText,
+  onChange,
+  onApplyIssue,
+  onDismissIssue,
+  onIgnoreIssue,
+  onDisabledDblClick
+}) {
   const editableCompartment = new Compartment();
   const placeholderCompartment = new Compartment();
   const state = EditorState.create({
@@ -224,6 +232,15 @@ export function createEditor({ parent, initialText, onChange, onApplyIssue, onDi
     state,
     parent
   });
+
+  if (onDisabledDblClick) {
+    view.dom.addEventListener("dblclick", () => {
+      const isEditable = view.state.facet(EditorView.editable);
+      if (!isEditable) {
+        onDisabledDblClick();
+      }
+    });
+  }
 
   return {
     view,

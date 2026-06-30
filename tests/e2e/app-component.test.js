@@ -163,6 +163,12 @@ test("AppComponent (e2e) editor", async (t) => {
           ],
           tooMany: false
         };
+      },
+      async createNewFile(directory) {
+        return { path: `${directory}/new.md` };
+      },
+      async readFile(path) {
+        return { path, content: "New file content" };
       }
     }
   });
@@ -170,5 +176,23 @@ test("AppComponent (e2e) editor", async (t) => {
   await t.test("empty / disabled when opened", async () => {
     const editorRoot = document.querySelector(".cm-content[contenteditable='false']");
     assert.ok(editorRoot);
-  })
+  });
+
+  await t.test("double click disabled editor creates new file", async () => {
+    const selectButton = document.querySelector(".select-directory-button");
+    selectButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const editorRoot = document.querySelector(".cm-content[contenteditable='false']");
+    assert.ok(editorRoot);
+    editorRoot.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const fileService = app.fileService;
+    assert.equal(fileService.createNewFile.calls.length, 1);
+    assert.equal(fileService.createNewFile.calls[0][0], "/tmp/posts");
+
+    const updatedEditor = document.querySelector(".cm-content");
+    assert.equal(updatedEditor.textContent, "New file content");
+  });
 });

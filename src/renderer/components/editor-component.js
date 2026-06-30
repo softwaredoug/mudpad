@@ -12,13 +12,22 @@ function dirname(filePath) {
 }
 
 export class EditorComponent {
-  constructor({ editor, fileService, correctionsService, onStatus, onIssuesChanged, onFileChanged }) {
+  constructor({
+    editor,
+    fileService,
+    correctionsService,
+    onStatus,
+    onIssuesChanged,
+    onFileChanged,
+    onDisabledDblClick
+  }) {
     this.editor = editor;
     this.fileService = fileService;
     this.correctionsService = correctionsService;
     this.onStatus = onStatus ?? (() => {});
     this.onIssuesChanged = onIssuesChanged ?? (() => {});
     this.onFileChanged = onFileChanged ?? (() => {});
+    this.onDisabledDblClick = onDisabledDblClick ?? (() => {});
     this.filePath = null;
     this.activeDirectory = null;
     this.originalText = "";
@@ -87,6 +96,13 @@ export class EditorComponent {
       this.editor.setEditable(true);
       this.editor.setPlaceholder("");
     }
+  }
+
+  handleDisabledDblClick() {
+    if (this.filePath) {
+      return;
+    }
+    this.onDisabledDblClick();
   }
 
   async saveIfDirty() {

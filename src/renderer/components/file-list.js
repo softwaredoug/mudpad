@@ -244,6 +244,10 @@ export class FileList {
     await this.onRefresh();
   }
 
+  async createNewFile() {
+    await this.handleNewFileClick();
+  }
+
   async handleNewFolderClick() {
     if (!this.activeDirectory) {
       this.onStatus("Select a folder to add a new folder.");
