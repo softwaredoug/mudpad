@@ -8,6 +8,7 @@
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build": "vite build",
     "start": "electron .",
+    "test": "node --test tests/unit/*.test.js tests/e2e/*.test.js",
     "languagetool": "node scripts/launch-languagetool.js",
     "prepare:languagetool": "node scripts/prepare-languagetool.js",
     "package": "npm run build && npm run prepare:languagetool && electron-builder --dir",
