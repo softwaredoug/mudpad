@@ -64,3 +64,55 @@ test("FileList", async (t) => {
     assert.match(warning.textContent, /⚠️/);
   });
 });
+
+
+test("Updating file list", async (t) => {
+  const dom = new JSDOM("<!doctype html><html><body><div id=\"files\"></div></body></html>", {
+    url: "http://localhost/"
+  });
+  const { document } = dom.window;
+  const mountEl = document.getElementById("files");
+  const templates = await loadRendererTemplates();
+  global.fetch = createTemplateFetch(templates);
+
+  var overrides = {
+      async listTextFiles() {
+        return {
+          files: [
+            { path: "/tmp/posts/a.md", relativePath: "a.md" },
+            { path: "/tmp/posts/b.md", relativePath: "b.md" }
+          ],
+          tooMany: false
+        };
+      }
+  }
+
+  const fileList = new FileList({
+    mountEl,
+    fileService: createFileServiceMock(
+      overrides
+    ),
+    modalMount: document.body,
+    window: dom.window,
+    onFileOpen: (_path) => {
+    }
+  });
+  await fileList.ensureReady();
+  const listEl = mountEl.querySelector(".files-list");
+  assert.ok(listEl);
+
+  await t.test("once fulfilled it populates", async () => {
+    var result = fileList.refreshFileList({
+      directory: "/tmp/posts",
+      pattern: "*"});
+    // confirm something is rendered
+    result.then(() => {
+      const listEl = mountEl.querySelector(".files-list");
+      assert.ok(listEl);
+      const items = mountEl.querySelectorAll(".file-item");
+      assert.equal(items.length, 2);
+    });
+  })
+
+});
+

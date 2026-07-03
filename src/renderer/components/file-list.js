@@ -121,7 +121,7 @@ export class FileList {
 
   render() {
     if (!this.listEl) {
-      return this.ensureReady();
+      throw new Error("FileList not ready. Call ensureReady() first.");
     }
     this.listEl.innerHTML = "";
 
@@ -156,7 +156,7 @@ export class FileList {
 
   highlightActiveFile() {
     if (!this.listEl) {
-      return this.ensureReady();
+      throw new Error("FileList not ready. Call ensureReady() first.");
     }
     const items = Array.from(this.listEl.querySelectorAll(".file-item"));
     items.forEach((item) => {
@@ -279,15 +279,18 @@ export class FileList {
       this.setFiles({ files: [], activeDirectory: null, tooMany: false });
       return { files: [], tooMany: false };
     }
-    const result = await this.fileService.listTextFiles({
+    var fileResult = this.fileService.listTextFiles({
       directory,
       pattern
-    });
-    this.setFiles({
-      files: result?.files ?? [],
-      activeDirectory: directory,
-      tooMany: result?.tooMany
-    });
-    return result;
+    })
+    fileResult.then((result) => {
+      this.setFiles({
+        files: result?.files ?? [],
+        activeDirectory: directory,
+        tooMany: result?.tooMany
+      });
+    })
+    this.render();
+    return fileResult;
   }
 }
