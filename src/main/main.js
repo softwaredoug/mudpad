@@ -207,7 +207,7 @@ app.on("before-quit", () => {
   }
 });
 
-ipcMain.handle("select-directory", async () => {
+ipcMain.handle("show-directory-picker", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"]
   });

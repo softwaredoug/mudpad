@@ -1,6 +1,6 @@
 export class FileService {
-  selectDirectory() {
-    return window.api.selectDirectory();
+  showDirectoryPicker() {
+    return window.api.showDirectoryPicker();
   }
 
   getLastDirectory() {

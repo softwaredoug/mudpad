@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
-  selectDirectory: () => ipcRenderer.invoke("select-directory"),
+  showDirectoryPicker: () => ipcRenderer.invoke("show-directory-picker"),
   getLastDirectory: () => ipcRenderer.invoke("get-last-directory"),
   setLastDirectory: (payload) => ipcRenderer.invoke("set-last-directory", payload),
   getHomeDirectory: () => ipcRenderer.invoke("get-home-directory"),

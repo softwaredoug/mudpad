@@ -17,7 +17,7 @@ test("DirectorySelector select glob and directory", async (t) => {
     const mountEl = document.getElementById("mount");
 
     const fileService = createFileServiceMock({
-      async selectDirectory() {
+      async showDirectoryPicker() {
         return { path: selectDirectoryPath };
       }
     });
@@ -84,7 +84,7 @@ test("DirectorySelector last directory", async (t) => {
   const mountEl = document.getElementById("mount");
 
   const fileService = createFileServiceMock({
-    async selectDirectory() {
+    async showDirectoryPicker() {
       return { path: selectDirectoryPath };
     },
 

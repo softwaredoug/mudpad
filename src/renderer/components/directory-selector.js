@@ -83,7 +83,7 @@ export class DirectorySelector {
 
   async handleSelectClick() {
     await this.ensureReady();
-    const result = await this.fileService.selectDirectory();
+    const result = await this.fileService.showDirectoryPicker();
     if (!result?.path) {
       return;
     }

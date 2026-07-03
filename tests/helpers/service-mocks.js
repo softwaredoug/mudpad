@@ -26,7 +26,7 @@ function wrapAllFunctions(obj) {
 
 export function createFileServiceMock(overrides = {}) {
   var mock = {
-    async selectDirectory() {
+    async showDirectoryPicker() {
       return { path: null };
     },
     async getLastDirectory() {

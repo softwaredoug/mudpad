@@ -53,7 +53,7 @@ test("AppComponent, file selection", async (t) => {
   global.fetch = createTemplateFetch(templates);
 
   const fileService = createFileServiceMock({
-    async selectDirectory() {
+  async showDirectoryPicker() {
       return { path: "/tmp/posts" };
     },
     async listTextFiles() {
@@ -105,7 +105,7 @@ test("AppComponent, file selection", async (t) => {
 test("AppComponent (e2e) directory list component", async (t) => {
   const { dom, document, app } = await setupApp({
     fileServiceOverrides: {
-      async selectDirectory() {
+      async showDirectoryPicker() {
         return { path: "/tmp/posts" };
       },
       async listTextFiles() {
@@ -152,7 +152,7 @@ test("AppComponent (e2e) directory list component", async (t) => {
 test("AppComponent (e2e) editor", async (t) => {
   const { dom, document, app } = await setupApp({
     fileServiceOverrides: {
-      async selectDirectory() {
+      async showDirectoryPicker() {
         return { path: "/tmp/posts" };
       },
       async listTextFiles() {
