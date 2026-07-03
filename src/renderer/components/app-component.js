@@ -133,8 +133,6 @@ export class AppComponent {
       getActiveDirectory: () => this.directorySelector.getActiveDirectory()
     });
 
-    await this.directorySelector.initialize();
-
     repoStatusButton.addEventListener("click", () => {
       if (!this.repoStatus?.available) {
         return;

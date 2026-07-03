@@ -1,7 +1,7 @@
 import { BaseComponent } from "../modals/base-component.js";
 
 export class DirectorySelector {
-  constructor({ fileService, mountEl, onChange, onStatus, storage = window.localStorage }) {
+  constructor({ fileService, mountEl, onChange, onStatus }) {
     this.base = new BaseComponent({
       mountEl,
       templateUrl: new URL("./directory-selector.html?raw", import.meta.url)
@@ -9,7 +9,6 @@ export class DirectorySelector {
     this.fileService = fileService;
     this.onChange = onChange ?? (() => {});
     this.onStatus = onStatus ?? (() => {});
-    this.storage = storage;
     this.state = { directory: null, pattern: null, display: "" };
     this.input = null;
     this.errorLabel = null;
@@ -39,15 +38,16 @@ export class DirectorySelector {
     this._bound = true;
   }
 
-  static async create({ fileService, mountEl, onChange, onStatus, storage }) {
+  static async create({ fileService, mountEl, onChange, onStatus }) {
     const selector = new DirectorySelector({
       fileService,
       mountEl,
       onChange,
       onStatus,
-      storage
     });
-    await selector.ensureReady();
+    console.log(`[renderer +${Math.round(performance.now())}ms] DirectorySelector created`);
+    await selector.initialize();
+    console.log(`[renderer +${Math.round(performance.now())}ms] DirectorySelector initialized`);
     return selector;
   }
 
@@ -71,25 +71,6 @@ export class DirectorySelector {
       const validation = await this.fileService.validateDirectory(parsed.directory);
       if (validation?.ok) {
         await this.updateState(parsed);
-        return;
-      }
-    }
-
-    const storedInput = this.storage.getItem("activeDirectoryInput");
-    if (storedInput) {
-      const parsed = this.parseDirectoryInput(storedInput);
-      const validation = await this.fileService.validateDirectory(parsed.directory);
-      if (validation?.ok) {
-        await this.updateState(parsed);
-        return;
-      }
-    }
-
-    const stored = this.storage.getItem("activeDirectory");
-    if (stored) {
-      const validation = await this.fileService.validateDirectory(stored);
-      if (validation?.ok) {
-        await this.updateState({ directory: stored, pattern: null, display: stored });
         return;
       }
     }
@@ -133,19 +114,17 @@ export class DirectorySelector {
   }
 
   async updateState(nextState) {
+    console.log(`[renderer +${Math.round(performance.now())}ms] DirectorySelector updateState called`);
     this.state = { ...nextState };
     this.input.value = nextState.display ?? nextState.directory ?? "";
     this.setError("");
     if (nextState.directory) {
-      this.storage.setItem("activeDirectory", nextState.directory);
-      if (nextState.display) {
-        this.storage.setItem("activeDirectoryInput", nextState.display);
-      }
-      await this.fileService.setLastDirectory({
+      this.fileService.setLastDirectory({
         directory: nextState.directory,
         display: nextState.display ?? nextState.directory
       });
     }
+    console.log(`[renderer +${Math.round(performance.now())}ms] DirectorySelector calling on change`);
     this.onChange({ ...this.state });
   }
 
