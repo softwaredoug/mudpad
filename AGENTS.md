@@ -14,7 +14,6 @@ Tests are broken down into 3 categories:
 - e2e: end-to-end tests for the entire app, simulating user interactions, but mocking external dependencies
 - integration: tests that test the app with real external dependencies, such as the LLM API
 
-## Commits
+## Co-authoring
 
-- Include a Co-authored-by trailer for the model on every commit.
-- Use a short subject line plus a more detailed body message.
+A human being may have working changes in this repo. Don't overwrite those working changes without asking.
