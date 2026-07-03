@@ -11,7 +11,11 @@
     "languagetool": "node scripts/launch-languagetool.js",
     "prepare:languagetool": "node scripts/prepare-languagetool.js",
     "package": "npm run build && npm run prepare:languagetool && electron-builder --dir",
-    "dist": "npm run build && npm run prepare:languagetool && electron-builder"
+    "dist": "npm run build && npm run prepare:languagetool && electron-builder",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
   },
   "dependencies": {
     "@codemirror/commands": "^6.6.1",
@@ -23,11 +27,14 @@
     "fast-glob": "^3.3.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^30.0.0",
-    "jsdom": "^25.0.1",
     "electron-builder": "^24.13.3",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "jsdom": "^25.0.1",
     "vite": "^5.3.4",
     "wait-on": "^7.2.0"
   },
