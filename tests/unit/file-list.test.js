@@ -5,7 +5,8 @@ import { FileList } from "../../src/renderer/components/file-list.js";
 import { createFileServiceMock } from "../helpers/service-mocks.js";
 import { loadRendererTemplates, createTemplateFetch } from "../helpers/template-mocks.js";
 
-async function setupFileList({ onFileOpen } = {}) {
+
+test("FileList", async (t) => {
   const dom = new JSDOM("<!doctype html><html><body><div id=\"files\"></div></body></html>", {
     url: "http://localhost/"
   });
@@ -14,27 +15,19 @@ async function setupFileList({ onFileOpen } = {}) {
   const templates = await loadRendererTemplates();
   global.fetch = createTemplateFetch(templates);
 
+  var opened = null;
   const fileList = new FileList({
     mountEl,
     fileService: createFileServiceMock(),
     modalMount: document.body,
     window: dom.window,
-    onFileOpen
+    onFileOpen: (path) => {
+      opened = path;
+    }
   });
   await fileList.ensureReady();
 
-  return { dom, document, mountEl, fileList };
-}
-
-test("FileList", async (t) => {
   await t.test("renders items and handles double-click", async () => {
-    let opened = null;
-    const { dom, mountEl, fileList } = await setupFileList({
-      onFileOpen: (path) => {
-        opened = path;
-      }
-    });
-
     fileList.setFiles({
       activeDirectory: "/tmp",
       files: [
@@ -53,16 +46,12 @@ test("FileList", async (t) => {
   });
 
   await t.test("shows empty copy based on directory state", async () => {
-    const { mountEl, fileList } = await setupFileList();
-
     fileList.setFiles({ activeDirectory: null, files: [] });
     const listEl = mountEl.querySelector(".files-list");
     assert.equal(listEl.textContent.trim(), "Select a folder to begin");
   });
 
   await t.test("shows a warning when too many files are listed", async () => {
-    const { mountEl, fileList } = await setupFileList();
-
     fileList.setFiles({
       activeDirectory: "/tmp",
       files: [{ path: "/tmp/a.md", relativePath: "a.md" }],
