@@ -87,7 +87,7 @@ export class AppComponent {
       onDisabledDblClick: () => this.fileList?.createNewFile()
     });
 
-    this.fileList = new FileList({
+    this.fileList = await FileList.create({
       mountEl: filesPanel,
       fileService: this.fileService,
       modalMount,
@@ -133,7 +133,6 @@ export class AppComponent {
       getActiveDirectory: () => this.directorySelector.getActiveDirectory()
     });
 
-    this.fileList.ensureReady();
     this.directorySelector.ensureReady();
     await this.directorySelector.initialize();
 

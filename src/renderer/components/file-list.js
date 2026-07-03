@@ -107,6 +107,35 @@ export class FileList {
     this.render();
   }
 
+  static async create({
+    mountEl,
+    onStatus,
+    fileService,
+    modalMount,
+    window,
+    onFileOpen,
+    onRefresh,
+    onRepoRefresh,
+    editorComponent,
+    getRepoStatus
+  }) {
+    const fileList = new FileList({
+      mountEl,
+      onStatus,
+      fileService,
+      modalMount,
+      window,
+      onFileOpen,
+      onRefresh,
+      onRepoRefresh,
+      editorComponent,
+      getRepoStatus
+    });
+    await fileList.ensureReady();
+    return fileList;
+  }
+
+
   setFiles({ files, activeDirectory, tooMany }) {
     this.files = files ?? [];
     this.activeDirectory = activeDirectory ?? null;
