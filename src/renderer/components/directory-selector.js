@@ -39,6 +39,18 @@ export class DirectorySelector {
     this._bound = true;
   }
 
+  static async create({ fileService, mountEl, onChange, onStatus, storage }) {
+    const selector = new DirectorySelector({
+      fileService,
+      mountEl,
+      onChange,
+      onStatus,
+      storage
+    });
+    await selector.ensureReady();
+    return selector;
+  }
+
   getState() {
     return { ...this.state };
   }

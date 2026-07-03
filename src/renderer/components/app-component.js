@@ -100,7 +100,7 @@ export class AppComponent {
       getRepoStatus: () => this.repoStatus
     });
 
-    this.directorySelector = new DirectorySelector({
+    this.directorySelector = await DirectorySelector.create({
       fileService: this.fileService,
       mountEl: directorySelectorMount,
       onChange: async ({ directory, pattern }) => {
@@ -133,7 +133,6 @@ export class AppComponent {
       getActiveDirectory: () => this.directorySelector.getActiveDirectory()
     });
 
-    this.directorySelector.ensureReady();
     await this.directorySelector.initialize();
 
     repoStatusButton.addEventListener("click", () => {

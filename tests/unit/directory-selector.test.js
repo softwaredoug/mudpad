@@ -23,7 +23,7 @@ describe("DirectorySelector", () => {
     });
 
     let changePayload = null;
-    const selector = new DirectorySelector({
+    const selector = await DirectorySelector.create({
       fileService,
       mountEl,
       onChange: (payload) => {
@@ -36,7 +36,6 @@ describe("DirectorySelector", () => {
       }
     });
 
-    await selector.ensureReady();
     await selector.handleSelectClick();
 
     assert.deepEqual(changePayload, {
@@ -63,7 +62,7 @@ describe("DirectorySelector", () => {
     });
 
     let changePayload = null;
-    const selector = new DirectorySelector({
+    const selector = await DirectorySelector.create({
       fileService,
       mountEl,
       onChange: (payload) => {
@@ -76,7 +75,6 @@ describe("DirectorySelector", () => {
       }
     });
 
-    await selector.ensureReady();
     const input = mountEl.querySelector(".active-directory");
     input.value = "/tmp/posts/**/*.md";
     await selector.applyInput();
