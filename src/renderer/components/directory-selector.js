@@ -146,7 +146,7 @@ export class DirectorySelector {
 
   parseDirectoryInput(value) {
     const trimmed = value.trim();
-    const globIndex = trimmed.search(/[\*\?\[]/);
+    const globIndex = trimmed.search(/[*?[]/);
     if (globIndex === -1) {
       return { directory: trimmed, pattern: null, display: trimmed };
     }
