@@ -77,7 +77,7 @@ export class AppComponent {
       onStatus: (message) => this.setStatus(statusLabel, message)
     });
 
-    this.editorComponent = new EditorComponent({
+    this.editorComponent = await EditorComponent.create({
       editor,
       fileService: this.fileService,
       correctionsService: this.correctionsService,

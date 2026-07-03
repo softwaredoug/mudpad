@@ -47,7 +47,7 @@ describe("EditorComponent", () => {
     };
 
     let publishedIssues = [];
-    const editorComponent = new EditorComponent({
+    const editorComponent = await EditorComponent.create({
       editor,
       fileService,
       correctionsService,
@@ -104,7 +104,7 @@ describe("EditorComponent", () => {
     };
 
     let publishedIssues = [];
-    const editorComponent = new EditorComponent({
+    const editorComponent = await EditorComponent.create({
       editor,
       fileService,
       correctionsService,

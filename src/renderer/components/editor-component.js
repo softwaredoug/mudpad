@@ -36,6 +36,32 @@ export class EditorComponent {
     this.setEditorDisabled(true);
   }
 
+  async ensureReady() {
+    return;
+  }
+
+  static async create({
+    editor,
+    fileService,
+    correctionsService,
+    onStatus,
+    onIssuesChanged,
+    onFileChanged,
+    onDisabledDblClick
+  }) {
+    const component = new EditorComponent({
+      editor,
+      fileService,
+      correctionsService,
+      onStatus,
+      onIssuesChanged,
+      onFileChanged,
+      onDisabledDblClick
+    });
+    await component.ensureReady();
+    return component;
+  }
+
   getFilePath() {
     return this.filePath;
   }
