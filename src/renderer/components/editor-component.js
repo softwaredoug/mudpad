@@ -291,9 +291,11 @@ export class EditorComponent {
     }
   }
 
-  updateIssues(issueData) {
+  async updateIssues(issueData) {
     this.editor.setIssues(issueData);
-    this.issues = issueData.map((data) => new Issue({ editor: this, data }));
+    this.issues = await Promise.all(
+      issueData.map((data) => Issue.create({ editor: this, data }))
+    );
     this.onIssuesChanged(this.issues);
   }
 

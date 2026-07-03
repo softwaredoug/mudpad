@@ -5,6 +5,16 @@ export class Issue {
     Object.assign(this, data);
   }
 
+  async ensureReady() {
+    return;
+  }
+
+  static async create({ editor, data }) {
+    const issue = new Issue({ editor, data });
+    await issue.ensureReady();
+    return issue;
+  }
+
   apply() {
     return this.editor.applyIssue(this);
   }
