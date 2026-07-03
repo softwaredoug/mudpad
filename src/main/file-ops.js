@@ -153,7 +153,7 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
       fileName = `${baseName}-(${counter}).md`;
       filePath = path.join(directory, fileName);
       counter += 1;
-    } catch (error) {
+    } catch {
       break;
     }
   }
@@ -191,7 +191,7 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
   } else {
     try {
       await runGit(["add", "-A", "--", filePath], directory);
-    } catch (error) {
+    } catch {
       // Ignore if not a git repo.
     }
   }
@@ -273,7 +273,7 @@ export async function renameFile({ oldPath, newName, messageShort, messageLong }
   try {
     await fs.access(newPath);
     return { error: "A file with that name already exists." };
-  } catch (error) {
+  } catch {
     // continue
   }
 
@@ -412,16 +412,16 @@ export async function getGitStatus(directory, { fetch = true } = {}) {
     }
   }
 
-  let branch = "";
-  let upstream = "";
+  let branch;
+  let upstream;
   let ahead = 0;
   let behind = 0;
-  let dirty = false;
-  let statusSummary = "";
+  let dirty;
+  let statusSummary;
 
   try {
     branch = (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], repoRoot)).stdout.trim();
-  } catch (error) {
+  } catch {
     branch = "";
   }
 
@@ -429,7 +429,7 @@ export async function getGitStatus(directory, { fetch = true } = {}) {
     upstream = (
       await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], repoRoot)
     ).stdout.trim();
-  } catch (error) {
+  } catch {
     upstream = "";
   }
 
@@ -441,7 +441,7 @@ export async function getGitStatus(directory, { fetch = true } = {}) {
       const [aheadCount, behindCount] = counts.split(/\s+/).map((value) => Number(value));
       ahead = Number.isFinite(aheadCount) ? aheadCount : 0;
       behind = Number.isFinite(behindCount) ? behindCount : 0;
-    } catch (error) {
+    } catch {
       ahead = 0;
       behind = 0;
     }
@@ -450,7 +450,7 @@ export async function getGitStatus(directory, { fetch = true } = {}) {
   try {
     dirty = (await runGit(["status", "--porcelain"], repoRoot)).stdout.trim().length > 0;
     statusSummary = (await runGit(["status", "-sb"], repoRoot)).stdout.trim();
-  } catch (error) {
+  } catch {
     dirty = false;
     statusSummary = "";
   }
@@ -499,13 +499,13 @@ async function resolveRepoRoot(startDir) {
   try {
     const result = await runGit(["rev-parse", "--show-toplevel"], startDir);
     return result.stdout.trim();
-  } catch (error) {
+  } catch {
     try {
       const inside = await runGit(["rev-parse", "--is-inside-work-tree"], startDir);
       if (inside.stdout.trim() === "true") {
         return startDir;
       }
-    } catch (innerError) {
+    } catch {
       // ignore
     }
     return null;
@@ -519,7 +519,7 @@ async function runGit(args, cwd) {
 async function normalizePath(targetPath) {
   try {
     return await fs.realpath(targetPath);
-  } catch (error) {
+  } catch {
     return path.resolve(targetPath);
   }
 }

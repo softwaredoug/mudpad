@@ -239,7 +239,7 @@ ipcMain.handle("validate-directory", async (_event, directory) => {
       return { ok: false, error: "Path is not a directory." };
     }
     return { ok: true };
-  } catch (error) {
+  } catch {
     return { ok: false, error: "Directory not found." };
   }
 });
@@ -337,7 +337,7 @@ async function readLastDirectory() {
     if (data?.directory) {
       return { path: data.directory, display: data.display ?? data.directory };
     }
-  } catch (error) {
+  } catch {
     // ignore
   }
   return { path: null };
@@ -378,77 +378,6 @@ ipcMain.handle("analyze-corrections", async (_event, payload) =>
     return fileCorrections.runAnalysis({ text: payload?.text ?? "", includeLlm: false });
   }
 );
-
-async function getGitStatus(directory, { fetch = true } = {}) {
-  const repoRoot = await resolveRepoRoot(directory);
-  if (!repoRoot) {
-    return { available: false };
-  }
-
-  let fetchError = null;
-  if (fetch) {
-    try {
-      await runGit(["fetch", "--prune"], repoRoot);
-    } catch (error) {
-      fetchError = error?.stderr || error?.message || "Fetch failed";
-    }
-  }
-
-  let branch = "";
-  let upstream = "";
-  let ahead = 0;
-  let behind = 0;
-  let dirty = false;
-  let statusSummary = "";
-
-  try {
-    branch = (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], repoRoot)).stdout.trim();
-  } catch (error) {
-    branch = "";
-  }
-
-  try {
-    upstream = (
-      await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], repoRoot)
-    ).stdout.trim();
-  } catch (error) {
-    upstream = "";
-  }
-
-  if (upstream) {
-    try {
-      const counts = (
-        await runGit(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], repoRoot)
-      ).stdout.trim();
-      const [aheadCount, behindCount] = counts.split(/\s+/).map((value) => Number(value));
-      ahead = Number.isFinite(aheadCount) ? aheadCount : 0;
-      behind = Number.isFinite(behindCount) ? behindCount : 0;
-    } catch (error) {
-      ahead = 0;
-      behind = 0;
-    }
-  }
-
-  try {
-    dirty = (await runGit(["status", "--porcelain"], repoRoot)).stdout.trim().length > 0;
-    statusSummary = (await runGit(["status", "-sb"], repoRoot)).stdout.trim();
-  } catch (error) {
-    dirty = false;
-    statusSummary = "";
-  }
-
-  return {
-    available: true,
-    repoRoot,
-    branch,
-    upstream,
-    ahead,
-    behind,
-    dirty,
-    statusSummary,
-    fetchError
-  };
-}
 
 async function checkGrammarWithLanguageTool(text) {
   const endpoint = `http://localhost:${languageToolPort}/v2/check`;
@@ -494,7 +423,7 @@ async function checkGrammarWithLanguageTool(text) {
     });
 
     return { issues, error: null };
-  } catch (error) {
+  } catch {
     if (!languageToolErrorShown) {
       showLanguageToolError(
         "LanguageTool not reachable",
@@ -559,7 +488,7 @@ async function analyzeWithLlm(text) {
     });
 
     return { issues, error: null };
-  } catch (error) {
+  } catch {
     return { issues: [], error: "Failed to parse LLM response" };
   }
 }

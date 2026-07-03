@@ -12,7 +12,7 @@ async function exists(filePath) {
   try {
     await fs.access(filePath);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -151,7 +151,7 @@ export async function resolveJavaCommand() {
           return javaBin;
         }
       }
-    } catch (error) {
+    } catch {
       // Fall through to PATH lookup.
     }
   }

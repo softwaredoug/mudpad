@@ -32,7 +32,7 @@ export function createFileServiceMock(overrides = {}) {
     async getLastDirectory() {
       return { path: null };
     },
-    async validateDirectory(directory) {
+    async validateDirectory(_directory) {
       return { ok: true };
     },
     async getHomeDirectory() {
@@ -41,7 +41,7 @@ export function createFileServiceMock(overrides = {}) {
     async setLastDirectory() {
       return { ok: true };
     },
-    async listTextFiles(payload) {
+    async listTextFiles(_payload) {
       return { files: [], tooMany: false };
     },
     async readFile(filePath) {
@@ -56,16 +56,16 @@ export function createFileServiceMock(overrides = {}) {
     async syncWithOrigin() {
       return { available: false };
     },
-    async createNewFile(directory) {
+    async createNewFile(_directory) {
       return { path: null };
     },
-    async createFolder(payload) {
+    async createFolder(_payload) {
       return { ok: true };
     },
-    async deleteFile(payload) {
+    async deleteFile(_payload) {
       return { ok: true };
     },
-    async renameFile(payload) {
+    async renameFile(_payload) {
       return { ok: true };
     },
     ...overrides

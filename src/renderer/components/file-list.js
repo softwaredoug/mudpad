@@ -111,25 +111,17 @@ export class FileList {
     this.files = files ?? [];
     this.activeDirectory = activeDirectory ?? null;
     this.tooMany = Boolean(tooMany);
-    if (this.listEl) {
-      this.render();
-    } else {
-      void this.ensureReady();
-    }
+    this.render();
   }
 
   setActiveFilePath(path) {
     this.activeFilePath = path ?? null;
-    if (this.listEl) {
-      this.highlightActiveFile();
-    } else {
-      void this.ensureReady();
-    }
+    this.highlightActiveFile();
   }
 
   render() {
     if (!this.listEl) {
-      return;
+      return this.ensureReady();
     }
     this.listEl.innerHTML = "";
 
@@ -164,7 +156,7 @@ export class FileList {
 
   highlightActiveFile() {
     if (!this.listEl) {
-      return;
+      return this.ensureReady();
     }
     const items = Array.from(this.listEl.querySelectorAll(".file-item"));
     items.forEach((item) => {

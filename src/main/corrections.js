@@ -207,7 +207,7 @@ async function readSpellingExceptions(directory) {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -225,7 +225,7 @@ async function readDismissedChanges(directory) {
       .filter(Boolean)
       .map((line) => parseDismissedLine(line))
       .filter(Boolean);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -263,7 +263,7 @@ async function findNearestFile(startDir, fileName) {
       if (stat.isFile()) {
         return candidate;
       }
-    } catch (error) {
+    } catch {
       // ignore
     }
 
@@ -286,7 +286,7 @@ async function resolveRepoRoot(startDir) {
       cwd: startDir
     });
     return result.stdout.trim();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -294,7 +294,7 @@ async function resolveRepoRoot(startDir) {
 async function normalizePath(targetPath) {
   try {
     return await fs.realpath(targetPath);
-  } catch (error) {
+  } catch {
     return path.resolve(targetPath);
   }
 }
