@@ -22,6 +22,16 @@ export class IssuesSidebar {
     this._bound = true;
   }
 
+  static async create({ mountEl, onIssueSelect, onStatus }) {
+    const sidebar = new IssuesSidebar({
+      mountEl,
+      onIssueSelect,
+      onStatus
+    });
+    await sidebar.ensureReady();
+    return sidebar;
+  }
+
   render(issues) {
     if (!this.listEl) {
       void this.ensureReady().then(() => this.render(issues));

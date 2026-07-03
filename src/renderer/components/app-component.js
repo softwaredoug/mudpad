@@ -67,7 +67,7 @@ export class AppComponent {
       onDisabledDblClick: () => this.editorComponent?.handleDisabledDblClick()
     });
 
-    this.issuesSidebar = new IssuesSidebar({
+    this.issuesSidebar = await IssuesSidebar.create({
       mountEl: issuesPanel,
       onIssueSelect: (issue) => {
         if (issue.range) {

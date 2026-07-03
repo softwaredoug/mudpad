@@ -5,15 +5,15 @@ import { IssuesSidebar } from "../../src/renderer/components/issues-sidebar.js";
 import { loadRendererTemplates, createTemplateFetch } from "../helpers/template-mocks.js";
 
 describe("IssuesSidebar", () => {
-  it("renders issues and wires actions", () => {
+  it("renders issues and wires actions", async () => {
     const dom = new JSDOM("<!doctype html><html><body><div id=\"issues\"></div></body></html>", {
       url: "http://localhost/"
     });
     const { document } = dom.window;
     const mountEl = document.getElementById("issues");
 
-    return loadRendererTemplates().then((templates) => {
-      global.fetch = createTemplateFetch(templates);
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
 
       const actions = [];
       const issue = {
@@ -29,50 +29,44 @@ describe("IssuesSidebar", () => {
       };
 
       let selected = null;
-      const sidebar = new IssuesSidebar({
+      const sidebar = await IssuesSidebar.create({
         mountEl,
         onIssueSelect: (selectedIssue) => {
           selected = selectedIssue;
         }
       });
 
-      return sidebar.ensureReady().then(() => {
-        sidebar.render([issue]);
+    sidebar.render([issue]);
 
-        const item = mountEl.querySelector(".issue-item");
-        assert.ok(item, "renders issue item");
+    const item = mountEl.querySelector(".issue-item");
+    assert.ok(item, "renders issue item");
 
-        item.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-        assert.equal(selected, issue);
+    item.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.equal(selected, issue);
 
-        const buttons = Array.from(item.querySelectorAll("button"));
-        const [ignoreButton, applyButton, dismissButton] = buttons;
+    const buttons = Array.from(item.querySelectorAll("button"));
+    const [ignoreButton, applyButton, dismissButton] = buttons;
 
-        ignoreButton.click();
-        applyButton.click();
-        dismissButton.click();
+    ignoreButton.click();
+    applyButton.click();
+    dismissButton.click();
 
-        assert.deepEqual(actions, ["ignore", "apply", "dismiss"]);
-      });
-    });
+    assert.deepEqual(actions, ["ignore", "apply", "dismiss"]);
   });
 
-  it("shows empty state", () => {
+  it("shows empty state", async () => {
     const dom = new JSDOM("<!doctype html><html><body><div id=\"issues\"></div></body></html>", {
       url: "http://localhost/"
     });
     const { document } = dom.window;
     const mountEl = document.getElementById("issues");
 
-    return loadRendererTemplates().then((templates) => {
-      global.fetch = createTemplateFetch(templates);
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
 
-      const sidebar = new IssuesSidebar({ mountEl });
-      return sidebar.ensureReady().then(() => {
-        sidebar.render([]);
-        const listEl = mountEl.querySelector(".issues-list");
-        assert.equal(listEl.textContent.trim(), "No issues");
-      });
-    });
+    const sidebar = await IssuesSidebar.create({ mountEl });
+    sidebar.render([]);
+    const listEl = mountEl.querySelector(".issues-list");
+    assert.equal(listEl.textContent.trim(), "No issues");
   });
 });
