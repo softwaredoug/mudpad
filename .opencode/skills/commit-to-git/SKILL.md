@@ -31,3 +31,12 @@ Optimize calculateSum function for performance
 Previously calculateSum was a loop over an array, but by unrolling the loop
 and performing SIMD operations, we were able to make better use of the hardware.
 ```
+
+## Unrelated changes
+
+You're likely committing with specific changes in mind. Something the user asked you to do.
+
+The repo might have other uncommitted changes. Those might be being performed by someone else in parallel and 
+should be respected. Do not try to undo these or revert these.
+
+If you cannot commit without undoring these changes, stop the commit and ask the user to either commit them or stash them.
