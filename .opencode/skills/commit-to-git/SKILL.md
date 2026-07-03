@@ -32,6 +32,13 @@ Previously calculateSum was a loop over an array, but by unrolling the loop
 and performing SIMD operations, we were able to make better use of the hardware.
 ```
 
+## Pre-commit hooks
+
+Expect various pre-commit hooks to run. Those exist to protect the codebase against bad changes.
+
+Try to resolve them. If they require changes to tests, then prompt the user with suggestions on where the tests
+need to be updated.
+
 ## Unrelated changes
 
 You're likely committing with specific changes in mind. Something the user asked you to do.
