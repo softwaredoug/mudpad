@@ -2,6 +2,7 @@ import { EditorState, StateEffect, StateField, Compartment } from "@codemirror/s
 import { EditorView, Decoration, keymap, hoverTooltip, placeholder } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 import { history, historyKeymap } from "@codemirror/commands";
+import { search, searchKeymap } from "@codemirror/search";
 
 const setIssuesEffect = StateEffect.define();
 const setHoverSuppressedEffect = StateEffect.define();
@@ -207,7 +208,8 @@ export function createEditor({
     extensions: [
       markdown(),
       history(),
-      keymap.of([...historyKeymap]),
+      search(),
+      keymap.of([...searchKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({
         spellcheck: "false",
         autocorrect: "off",
