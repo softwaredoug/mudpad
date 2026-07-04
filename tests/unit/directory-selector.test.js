@@ -84,10 +84,6 @@ test("DirectorySelector last directory", async (t) => {
   const mountEl = document.getElementById("mount");
 
   const fileService = createFileServiceMock({
-    async showDirectoryPicker() {
-      return { path: selectDirectoryPath };
-    },
-
     async getLastDirectory() {
       return { path: selectDirectoryPath };
     }
