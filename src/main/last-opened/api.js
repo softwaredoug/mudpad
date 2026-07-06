@@ -15,6 +15,10 @@ export class LastOpenedAPI {
     ipcMain.handle("set-last-directory", async (_event, payload) =>
       api.writeLastDirectory(payload)
     );
+    ipcMain.handle("get-last-file", async () => api.readLastFile());
+    ipcMain.handle("set-last-file", async (_event, payload) =>
+      api.writeLastFilePath(payload)
+    );
     return api;
   }
 
@@ -24,8 +28,9 @@ export class LastOpenedAPI {
     return {path: directory, display: display};
   }
 
-  async readLastFile() {
-    return {lastFile: await this.lastOpened.getLastFile()}
+  async readLastFilePath() {
+    let lastFile = await this.lastOpened.getLastFile();
+    return {lastFilePath: lastFile};
   }
 
   async writeLastDirectory(payload) {
@@ -38,6 +43,19 @@ export class LastOpenedAPI {
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error?.message || "Failed to save directory." };
+    }
+  }
+
+  async writeLastFilePath(payload) {
+    const filepath = payload?.lastFilePath ?? payload;
+    if (!filepath) {
+      return { ok: false };
+    }
+    try {
+      await this.lastOpened.writeLastFile(filepath);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error?.message || "Failed to save last file path." };
     }
   }
 }

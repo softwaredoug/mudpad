@@ -18,9 +18,15 @@ test("LastOpenedAPI read/write", async (t) => {
   const ipcMain = {
     handle: () => {}
   };
-  const api = await LastOpenedAPI.create(app, ipcMain);
 
-  await t.test("readLastDirectory returns concrete values", async () => {
+  t.afterEach(async () => {
+    // Clear the last-directory.json file after each test
+    const lastOpenedFilePath = path.join(tempDir, "last-directory.json");
+    await fs.rm(lastOpenedFilePath, { force: true });
+  });
+
+  await t.test("readLastDirectory returns written values", async () => {
+    const api = await LastOpenedAPI.create(app, ipcMain);
     await api.writeLastDirectory({
       directory: "/tmp/posts",
       display: "Posts"
@@ -28,5 +34,22 @@ test("LastOpenedAPI read/write", async (t) => {
     const result = await api.readLastDirectory();
     assert.equal(result.path, "/tmp/posts");
     assert.equal(result.display, "Posts");
+  });
+
+  await t.test("just writing directory leaves file null", async () => {
+    const api = await LastOpenedAPI.create(app, ipcMain);
+    await api.writeLastDirectory({
+      directory: "/tmp/posts",
+      display: "Posts"
+    });
+    const result = await api.readLastFilePath();
+    assert.equal(result.lastFilePath, null);
+  });
+
+  await t.test("reading last file", async () => {
+    const api = await LastOpenedAPI.create(app, ipcMain);
+    await api.writeLastFilePath({lastFilePath: "/tmp/posts/post1.md"});
+    const result = await api.readLastFilePath();
+    assert.equal(result.lastFilePath, "/tmp/posts/post1.md");
   });
 });

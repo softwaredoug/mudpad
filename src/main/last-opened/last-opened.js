@@ -25,20 +25,27 @@ export default class LastOpened {
   async #read() {
     const content = await fs.readFile(this.filePath, "utf8");
     const data = JSON.parse(content);
-    if (data?.directory) {
-      let lastOpened = { directory: data.directory,
-                         display: data.display ?? data.directory };
-      if (data?.lastFile) {
-        lastOpened.lastFile = data.lastFile;
-      }
-      return lastOpened;
+    let lastOpened = {
+      directory: null,
+      display: null,
+      lastFile: null
     }
+    if (data?.directory) {
+      lastOpened.directory = data.directory;
+    }
+    if (data?.display) {
+      lastOpened.display = data.display;
+    }
+    if (data?.lastFile) {
+      lastOpened.lastFile = data.lastFile;
+    }
+    return lastOpened;
   }
 
   async #write(directory, display, lastFile) {
     let currentState = await this.#read()
-    directory = directory ?? currentState?.path;
-    display = display ?? currentState?.display ?? directory;
+    directory = directory ?? currentState?.path ?? "";
+    display = display ?? currentState?.display ?? directory ?? "";
     lastFile = lastFile ?? currentState?.lastFile;
 
     const content = JSON.stringify({directory, display, lastFile}, null, 2);
