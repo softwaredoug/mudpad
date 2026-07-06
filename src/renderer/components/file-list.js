@@ -11,9 +11,8 @@ export class FileList {
     modalMount,
     window,
     onFileOpen,
-    onRefresh,
+    onFileDelete,
     onRepoRefresh,
-    editorComponent,
     getRepoStatus
   }) {
     this.base = new BaseComponent({
@@ -24,9 +23,8 @@ export class FileList {
     this.onStatus = onStatus ?? (() => {});
     this.fileService = fileService;
     this.onFileOpen = onFileOpen ?? (() => {});
-    this.onRefresh = onRefresh ?? (() => {});
+    this.onFileDelete = onFileDelete ?? (() => {});
     this.onRepoRefresh = onRepoRefresh ?? (() => {});
-    this.editorComponent = editorComponent;
     this.getRepoStatus = getRepoStatus ?? (() => null);
     this.modalMount = modalMount;
     this.window = window;
@@ -76,7 +74,6 @@ export class FileList {
           directory: this.activeDirectory,
           pattern: this.activePattern
         });
-        await this.onRefresh();
         await this.onRepoRefresh();
       },
       onDelete: (targetPath) => {
@@ -98,13 +95,12 @@ export class FileList {
           return;
         }
         this.deleteModal.close();
-        this.editorComponent?.closeFile();
         await this.refreshFileList({
           directory: this.activeDirectory,
           pattern: this.activePattern
         });
-        await this.onRefresh();
         await this.onRepoRefresh();
+        await this.onFileDelete(filePath);
       }
     });
     this.newFileButton?.addEventListener("click", () => this.handleNewFileClick());
@@ -120,9 +116,8 @@ export class FileList {
     modalMount,
     window,
     onFileOpen,
-    onRefresh,
+    onFileDelete,
     onRepoRefresh,
-    editorComponent,
     getRepoStatus
   }) {
     const fileList = new FileList({
@@ -132,9 +127,8 @@ export class FileList {
       modalMount,
       window,
       onFileOpen,
-      onRefresh,
+      onFileDelete,
       onRepoRefresh,
-      editorComponent,
       getRepoStatus
     });
     await fileList.ensureReady();
@@ -273,7 +267,6 @@ export class FileList {
       directory: this.activeDirectory,
       pattern: this.activePattern
     });
-    await this.onRefresh();
   }
 
   async createNewFile() {

@@ -93,7 +93,7 @@ export class AppComponent {
       modalMount,
       window: this.window,
       onFileOpen: (path) => this.openFile(path),
-      onRefresh: () => {},
+      onFileDelete: () => { this.editorComponent.closeFile(); },
       onRepoRefresh: () => this.refreshRepoStatus(repoStatusButton, repoStatusDot, repoStatusLabel),
       onStatus: (message) => this.setStatus(statusLabel, message),
       editorComponent: this.editorComponent,
