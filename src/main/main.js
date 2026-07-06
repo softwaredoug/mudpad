@@ -9,6 +9,10 @@ import * as fileOps from "./file-ops.js";
 import { createCorrectionsEngine } from "./corrections.js";
 import { Worker } from "worker_threads";
 
+import { LastOpenedAPI } from "./last-opened/api.js";
+
+LastOpenedAPI.create(app, ipcMain);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const debugPort = process.env.REMOTE_DEBUGGING_PORT ?? "9222";
@@ -26,6 +30,7 @@ let languageToolProcess = null;
 let languageToolError = null;
 let languageToolErrorShown = false;
 let languageToolDiagnostics = null;
+
 const correctionsEngine = createCorrectionsEngine({
   grammarChecker: checkGrammarWithLanguageTool,
   llmChecker: analyzeWithLlm
@@ -223,11 +228,6 @@ ipcMain.handle("get-home-directory", async () => {
   return { path: app.getPath("home") };
 });
 
-ipcMain.handle("get-last-directory", async () => readLastDirectory());
-
-ipcMain.handle("set-last-directory", async (_event, payload) =>
-  writeLastDirectory(payload)
-);
 
 ipcMain.handle("validate-directory", async (_event, directory) => {
   if (!directory) {
@@ -327,36 +327,6 @@ async function listTextFilesInWorker(payload) {
       }
     });
   });
-}
-
-async function readLastDirectory() {
-  try {
-    const filePath = path.join(app.getPath("userData"), "last-directory.json");
-    const content = await fs.readFile(filePath, "utf8");
-    const data = JSON.parse(content);
-    if (data?.directory) {
-      return { path: data.directory, display: data.display ?? data.directory };
-    }
-  } catch {
-    // ignore
-  }
-  return { path: null };
-}
-
-async function writeLastDirectory(payload) {
-  const directory = payload?.directory ?? payload;
-  if (!directory) {
-    return { ok: false };
-  }
-  try {
-    const filePath = path.join(app.getPath("userData"), "last-directory.json");
-    const display = payload?.display ?? directory;
-    const content = JSON.stringify({ directory, display }, null, 2);
-    await fs.writeFile(filePath, content, "utf8");
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error?.message || "Failed to save directory." };
-  }
 }
 
 ipcMain.handle("check-corrections", async (_event, payload) =>
