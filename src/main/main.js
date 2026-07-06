@@ -1,10 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
-import { spawn } from "child_process";
 import fs from "fs/promises";
 import net from "net";
-import { resolveJavaCommand, resolveLanguageToolJar } from "./languagetool.js";
+import { startLanguageTool } from "./languagetool/index.js";
 import * as fileOps from "./file-ops.js";
 import { createCorrectionsEngine } from "./corrections.js";
 import { Worker } from "worker_threads";
@@ -67,7 +66,7 @@ function showLanguageToolError(title, details) {
   dialog.showErrorBox(title, fullDetails ?? "");
 }
 
-async function startLanguageTool() {
+async function startLanguageToolService() {
   if (process.env.DISABLE_LANGUAGETOOL === "1") {
     return;
   }
@@ -79,60 +78,41 @@ async function startLanguageTool() {
 
   try {
     languageToolPort = await findAvailablePort(languageToolPort);
-    const jarPath = await resolveLanguageToolJar({ cacheDir, bundledDir });
-    const javaCommand = await resolveJavaCommand();
-    const args = ["-jar", jarPath, "--port", languageToolPort];
-    const stderrBuffer = [];
-    languageToolDiagnostics = {
-      javaCommand,
-      jarPath,
-      stderr: stderrBuffer
-    };
-    languageToolProcess = spawn(javaCommand, args, { stdio: ["ignore", "pipe", "pipe"] });
-    logStartup("LanguageTool spawned");
-
-    languageToolProcess.stdout.on("data", (chunk) => {
-      process.stdout.write(chunk);
-    });
-
-    languageToolProcess.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      process.stderr.write(chunk);
-      text
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .forEach((line) => {
-          stderrBuffer.push(line);
-          if (stderrBuffer.length > 20) {
-            stderrBuffer.shift();
-          }
-        });
-    });
-
-    languageToolProcess.on("error", (error) => {
-      const message = `LanguageTool failed to start: ${error.message}`;
-      console.error(message);
-      const isMissingJava = error?.code === "ENOENT";
-      showLanguageToolError(
-        isMissingJava ? "Java not available" : "LanguageTool failed to start",
-        isMissingJava
-          ? "Java was not found. Install Java and relaunch the app. You can also set LANGUAGETOOL_JAVA to a full java path."
-          : "Java is required. Install Java and relaunch the app."
-      );
-    });
-
-    languageToolProcess.on("exit", (code) => {
-      languageToolProcess = null;
-      if (code && code !== 0) {
-        const message = `LanguageTool exited with code ${code}`;
+    const { diagnostics } = await startLanguageTool({
+      cacheDir,
+      bundledDir,
+      port: languageToolPort,
+      onProcess: (processHandle) => {
+        languageToolProcess = processHandle;
+        logStartup("LanguageTool spawned");
+      },
+      onRedownload: ({ reason }) => {
+        console.warn(`LanguageTool redownload triggered (${reason}).`);
+      },
+      onError: ({ type, error }) => {
+        const message = `LanguageTool failed to start: ${error.message}`;
         console.error(message);
+        const isMissingJava = type === "java-missing" || error?.code === "ENOENT";
         showLanguageToolError(
-          "LanguageTool exited unexpectedly",
-          `The grammar server exited with code ${code}.`
+          isMissingJava ? "Java not available" : "LanguageTool failed to start",
+          isMissingJava
+            ? "Java was not found. Install Java and relaunch the app. You can also set LANGUAGETOOL_JAVA to a full java path."
+            : "Java is required. Install Java and relaunch the app."
         );
+      },
+      onExit: ({ code }) => {
+        languageToolProcess = null;
+        if (code && code !== 0) {
+          const message = `LanguageTool exited with code ${code}`;
+          console.error(message);
+          showLanguageToolError(
+            "LanguageTool exited unexpectedly",
+            `The grammar server exited with code ${code}.`
+          );
+        }
       }
     });
+    languageToolDiagnostics = diagnostics;
   } catch (error) {
     const message = `Failed to start LanguageTool: ${error.message}`;
     console.error(message);
@@ -190,7 +170,7 @@ function createWindow() {
 app.whenReady().then(() => {
   logStartup("App ready");
   app.setName("MudPad");
-  startLanguageTool();
+  startLanguageToolService();
   createWindow();
 
   app.on("activate", () => {

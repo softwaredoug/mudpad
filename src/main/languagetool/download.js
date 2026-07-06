@@ -67,6 +67,25 @@ function downloadFile(url, destPath) {
   });
 }
 
+async function removeCache(cacheDir) {
+  if (!cacheDir || !(await exists(cacheDir))) {
+    return;
+  }
+
+  const entries = await fs.readdir(cacheDir, { withFileTypes: true });
+  await Promise.all(entries.map(async (entry) => {
+    const fullPath = path.join(cacheDir, entry.name);
+    if (entry.isFile() && entry.name.endsWith(".zip")) {
+      await fs.rm(fullPath, { force: true });
+      return;
+    }
+
+    if (entry.isDirectory() && entry.name.startsWith("LanguageTool")) {
+      await fs.rm(fullPath, { recursive: true, force: true });
+    }
+  }));
+}
+
 async function ensureDownloaded({ cacheDir, downloadUrl }) {
   await fs.mkdir(cacheDir, { recursive: true });
   const zipPath = path.join(cacheDir, "LanguageTool-stable.zip");
@@ -91,7 +110,8 @@ async function ensureDownloaded({ cacheDir, downloadUrl }) {
 export async function resolveLanguageToolJar({
   cacheDir,
   bundledDir,
-  downloadUrl = DEFAULT_DOWNLOAD_URL
+  downloadUrl = DEFAULT_DOWNLOAD_URL,
+  forceRedownload = false
 } = {}) {
   const jarPath = process.env.LANGUAGETOOL_JAR;
   const homeDir = process.env.LANGUAGETOOL_HOME;
@@ -107,84 +127,25 @@ export async function resolveLanguageToolJar({
     }
   }
 
-  const bundledJar = await findJarInDir(bundledDir);
-  if (bundledJar) {
-    return bundledJar;
-  }
+  if (!forceRedownload) {
+    const bundledJar = await findJarInDir(bundledDir);
+    if (bundledJar) {
+      return bundledJar;
+    }
 
-  const cachedJar = await findJarInDir(cacheDir);
-  if (cachedJar) {
-    return cachedJar;
+    const cachedJar = await findJarInDir(cacheDir);
+    if (cachedJar) {
+      return cachedJar;
+    }
   }
 
   if (!cacheDir) {
     throw new Error("No cache directory available for LanguageTool download.");
   }
 
+  if (forceRedownload) {
+    await removeCache(cacheDir);
+  }
+
   return ensureDownloaded({ cacheDir, downloadUrl });
-}
-
-export async function resolveJavaCommand() {
-  const explicitJava = process.env.LANGUAGETOOL_JAVA;
-  if (explicitJava && (await exists(explicitJava))) {
-    return explicitJava;
-  }
-
-  const javaHome = process.env.JAVA_HOME;
-  if (javaHome) {
-    const javaBin = path.join(javaHome, "bin", "java");
-    if (await exists(javaBin)) {
-      return javaBin;
-    }
-  }
-
-  if (process.platform === "darwin") {
-    try {
-      const { execFile } = await import("child_process");
-      const { promisify } = await import("util");
-      const execFileAsync = promisify(execFile);
-      const { stdout } = await execFileAsync("/usr/libexec/java_home");
-      const resolvedHome = stdout.trim();
-      if (resolvedHome) {
-        const javaBin = path.join(resolvedHome, "bin", "java");
-        if (await exists(javaBin)) {
-          return javaBin;
-        }
-      }
-    } catch {
-      // Fall through to PATH lookup.
-    }
-  }
-
-  const homeDir = process.env.HOME;
-  if (homeDir) {
-    const asdfJava = await findAsdfJava(path.join(homeDir, ".asdf", "installs", "java"));
-    if (asdfJava) {
-      return asdfJava;
-    }
-  }
-
-  return "java";
-}
-
-async function findAsdfJava(installsDir) {
-  if (!(await exists(installsDir))) {
-    return null;
-  }
-
-  const entries = await fs.readdir(installsDir, { withFileTypes: true });
-  const versions = entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .reverse();
-
-  for (const version of versions) {
-    const candidate = path.join(installsDir, version, "bin", "java");
-    if (await exists(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
 }
