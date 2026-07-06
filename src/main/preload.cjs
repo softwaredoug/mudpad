@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
   showDirectoryPicker: () => ipcRenderer.invoke("show-directory-picker"),
   getLastDirectory: () => ipcRenderer.invoke("get-last-directory"),
+  getLastFilePath: () => ipcRenderer.invoke("get-last-file-path"),
+  setLastFilePath: (payload) => ipcRenderer.invoke("set-last-file-path", payload),
   setLastDirectory: (payload) => ipcRenderer.invoke("set-last-directory", payload),
   getHomeDirectory: () => ipcRenderer.invoke("get-home-directory"),
   validateDirectory: (directory) => ipcRenderer.invoke("validate-directory", directory),

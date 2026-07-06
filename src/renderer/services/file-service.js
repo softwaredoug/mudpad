@@ -11,6 +11,14 @@ export class FileService {
     return window.api.setLastDirectory(payload);
   }
 
+  setLastFilePath(payload) {
+    return window.api.setLastFilePath(payload);
+  }
+
+  getLastFilePath() {
+    return window.api.getLastFilePath();
+  }
+
   getHomeDirectory() {
     return window.api.getHomeDirectory();
   }

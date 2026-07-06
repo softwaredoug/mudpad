@@ -15,8 +15,8 @@ export class LastOpenedAPI {
     ipcMain.handle("set-last-directory", async (_event, payload) =>
       api.writeLastDirectory(payload)
     );
-    ipcMain.handle("get-last-file", async () => api.readLastFile());
-    ipcMain.handle("set-last-file", async (_event, payload) =>
+    ipcMain.handle("get-last-file-path", async () => api.readLastFilePath());
+    ipcMain.handle("set-last-file-path", async (_event, payload) =>
       api.writeLastFilePath(payload)
     );
     return api;
@@ -30,6 +30,7 @@ export class LastOpenedAPI {
 
   async readLastFilePath() {
     let lastFile = await this.lastOpened.getLastFile();
+    console.log(`Reading last file path: ${lastFile}`);
     return {lastFilePath: lastFile};
   }
 
@@ -52,6 +53,7 @@ export class LastOpenedAPI {
       return { ok: false };
     }
     try {
+      console.log(`Writing last file path: ${filepath}`);
       await this.lastOpened.writeLastFile(filepath);
       return { ok: true };
     } catch (error) {

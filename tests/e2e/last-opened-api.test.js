@@ -29,18 +29,18 @@ test("LastOpenedAPI read/write", async (t) => {
     const api = await LastOpenedAPI.create(app, ipcMain);
     await api.writeLastDirectory({
       directory: "/tmp/posts",
-      display: "Posts"
+      display: "/tmp/posts/*.md"
     });
     const result = await api.readLastDirectory();
     assert.equal(result.path, "/tmp/posts");
-    assert.equal(result.display, "Posts");
+    assert.equal(result.display, "/tmp/posts/*.md");
   });
 
   await t.test("just writing directory leaves file null", async () => {
     const api = await LastOpenedAPI.create(app, ipcMain);
     await api.writeLastDirectory({
       directory: "/tmp/posts",
-      display: "Posts"
+      display: "/tmp/posts/*.md"
     });
     const result = await api.readLastFilePath();
     assert.equal(result.lastFilePath, null);
@@ -51,5 +51,40 @@ test("LastOpenedAPI read/write", async (t) => {
     await api.writeLastFilePath({lastFilePath: "/tmp/posts/post1.md"});
     const result = await api.readLastFilePath();
     assert.equal(result.lastFilePath, "/tmp/posts/post1.md");
+  });
+
+  await t.test("loads existing file", async () => {
+    const lastOpenedFilePath = path.join(tempDir, "last-directory.json");
+    await fs.writeFile(lastOpenedFilePath, JSON.stringify({
+      directory: "/tmp/posts",
+      display: "/tmp/posts/*.md",
+      lastFile: "/tmp/posts/post1.md"
+    }, null, 2), "utf8");
+
+    const api = await LastOpenedAPI.create(app, ipcMain);
+    const dirResult = await api.readLastDirectory();
+    assert.equal(dirResult.path, "/tmp/posts");
+    assert.equal(dirResult.display, "/tmp/posts/*.md");
+
+    const fileResult = await api.readLastFilePath();
+    assert.equal(fileResult.lastFilePath, "/tmp/posts/post1.md");
+  });
+
+  await t.test("setting file path does not overwrite existing directory", async () => {
+    const lastOpenedFilePath = path.join(tempDir, "last-directory.json");
+    await fs.writeFile(lastOpenedFilePath, JSON.stringify({
+      directory: "/tmp/posts",
+      display: "/tmp/posts/*.md",
+      lastFile: "/tmp/posts/post1.md"
+    }, null, 2), "utf8");
+
+    const api = await LastOpenedAPI.create(app, ipcMain);
+    await api.writeLastFilePath({lastFilePath: "/tmp/posts/post2.md"});
+    const dirResult = await api.readLastDirectory();
+    assert.equal(dirResult.path, "/tmp/posts");
+    assert.equal(dirResult.display, "/tmp/posts/*.md");
+
+    const fileResult = await api.readLastFilePath();
+    assert.equal(fileResult.lastFilePath, "/tmp/posts/post2.md");
   });
 });

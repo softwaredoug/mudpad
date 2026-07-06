@@ -49,6 +49,12 @@ export class FileList {
     if (this._bound) {
       return;
     }
+    let lastPath = await this.fileService.getLastFilePath();
+    if (lastPath.lastFilePath) {
+      setTimeout(() => {
+        this.openFile(lastPath.lastFilePath);
+      });
+    }
     this.listEl = this.base.query(".files-list");
     this.newFileButton = this.base.query(".new-file-button");
     this.newFolderButton = this.base.query(".new-folder-button");
@@ -64,7 +70,7 @@ export class FileList {
       buildSummary: (oldPath, newName) => this.buildRenameSummary(oldPath, newName),
       onConfirm: async ({ result }) => {
         if (result?.path) {
-          await this.onFileOpen(result.path);
+          await this.openFile(result.path);
         }
         await this.refreshFileList({
           directory: this.activeDirectory,
@@ -205,7 +211,7 @@ export class FileList {
       this.openRenameModal(path);
       return;
     }
-    await this.onFileOpen(path);
+    await this.openFile(path);
   }
 
   openRenameModal(path) {
@@ -214,6 +220,11 @@ export class FileList {
       path,
       requiresCommit: Boolean(repoStatus?.available)
     });
+  }
+
+  async openFile(path) {
+    this.fileService.setLastFilePath(path);
+    this.onFileOpen(path);
   }
 
   openDeleteModal(path) {
@@ -256,7 +267,7 @@ export class FileList {
       return;
     }
     if (result?.path) {
-      await this.onFileOpen(result.path);
+      await this.openFile(result.path);
     }
     await this.refreshFileList({
       directory: this.activeDirectory,

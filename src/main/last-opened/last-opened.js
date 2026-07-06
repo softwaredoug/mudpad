@@ -39,16 +39,18 @@ export default class LastOpened {
     if (data?.lastFile) {
       lastOpened.lastFile = data.lastFile;
     }
+    console.log(`Read last opened: ${JSON.stringify(lastOpened)}`);
     return lastOpened;
   }
 
   async #write(directory, display, lastFile) {
     let currentState = await this.#read()
-    directory = directory ?? currentState?.path ?? "";
+    directory = directory ?? currentState?.directory ?? "";
     display = display ?? currentState?.display ?? directory ?? "";
     lastFile = lastFile ?? currentState?.lastFile;
 
     const content = JSON.stringify({directory, display, lastFile}, null, 2);
+    console.log(`Writing last opened: ${content}`);
     await fs.writeFile(this.filePath, content, "utf8");
   }
 

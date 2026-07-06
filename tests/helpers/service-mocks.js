@@ -32,6 +32,13 @@ export function createFileServiceMock(overrides = {}) {
     async getLastDirectory() {
       return { path: null };
     },
+    async setLastFilePath(_payload) {
+      return { ok: true };
+    },
+
+    async getLastFilePath() {
+      return { lastFilePath: null };
+    },
     async validateDirectory(_directory) {
       return { ok: true };
     },
