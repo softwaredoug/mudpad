@@ -1,18 +1,33 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { JSDOM } from "jsdom";
 import { EditorComponent } from "../../src/renderer/components/editor-component.js";
 import { createFileServiceMock } from "../helpers/service-mocks.js";
+import { loadRendererTemplates, createTemplateFetch } from "../helpers/template-mocks.js";
+
+function applyDomGlobals(dom) {
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.Window = dom.window.Window;
+  global.MutationObserver = dom.window.MutationObserver;
+  global.HTMLElement = dom.window.HTMLElement;
+  global.Node = dom.window.Node;
+  global.getComputedStyle = dom.window.getComputedStyle;
+  global.requestAnimationFrame = dom.window.requestAnimationFrame;
+  global.cancelAnimationFrame = dom.window.cancelAnimationFrame;
+}
 
 describe("EditorComponent", () => {
   it("loads a file and publishes issues after debounce", async () => {
-    let textBuffer = "";
-    const editor = {
-      getText: () => textBuffer,
-      setText: (text) => {
-        textBuffer = text ?? "";
-      },
-      setIssues: () => {}
-    };
+    const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
+      url: "http://localhost/",
+      pretendToBeVisual: true
+    });
+    applyDomGlobals(dom);
+    const { document } = dom.window;
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
+    const mountEl = document.getElementById("root");
 
     const fileService = createFileServiceMock({
       async readFile(path) {
@@ -48,7 +63,7 @@ describe("EditorComponent", () => {
 
     let publishedIssues = [];
     const editorComponent = await EditorComponent.create({
-      editor,
+      mountEl,
       fileService,
       correctionsService,
       onIssuesChanged: (issues) => {
@@ -69,14 +84,15 @@ describe("EditorComponent", () => {
   });
 
   it("applyIssue forwards to corrections service and updates issues", async () => {
-    let textBuffer = "teh";
-    const editor = {
-      getText: () => textBuffer,
-      setText: (text) => {
-        textBuffer = text ?? "";
-      },
-      setIssues: () => {}
-    };
+    const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
+      url: "http://localhost/",
+      pretendToBeVisual: true
+    });
+    applyDomGlobals(dom);
+    const { document } = dom.window;
+    const templates = await loadRendererTemplates();
+    global.fetch = createTemplateFetch(templates);
+    const mountEl = document.getElementById("root");
 
     const fileService = createFileServiceMock({
       async readFile(path) {
@@ -105,7 +121,7 @@ describe("EditorComponent", () => {
 
     let publishedIssues = [];
     const editorComponent = await EditorComponent.create({
-      editor,
+      mountEl,
       fileService,
       correctionsService,
       onIssuesChanged: (issues) => {

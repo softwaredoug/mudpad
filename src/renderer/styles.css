@@ -109,6 +109,20 @@ body {
   min-height: 0;
 }
 
+.editor-mount {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-panel {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .files-panel {
   width: 260px;
   background: #f9fafb;
@@ -206,6 +220,7 @@ body {
 
 .editor {
   flex: 1;
+  min-height: 0;
   padding: 16px;
   background: #ffffff;
   overflow: auto;

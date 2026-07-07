@@ -1,4 +1,7 @@
 import { Issue } from "./issue.js";
+import { createEditor } from "../editor.js";
+import { BaseComponent } from "../modals/base-component.js";
+
 
 function dirname(filePath) {
   const normalized = filePath.replace(/\\/g, "/");
@@ -13,7 +16,7 @@ function dirname(filePath) {
 
 export class EditorComponent {
   constructor({
-    editor,
+    mountEl,
     fileService,
     correctionsService,
     onStatus,
@@ -21,7 +24,10 @@ export class EditorComponent {
     onFileChanged,
     onDisabledDblClick
   }) {
-    this.editor = editor;
+    this.base = new BaseComponent({
+      mountEl,
+      templateUrl: new URL("./editor-component.html?raw", import.meta.url)
+    });
     this.fileService = fileService;
     this.correctionsService = correctionsService;
     this.onStatus = onStatus ?? (() => {});
@@ -41,7 +47,7 @@ export class EditorComponent {
   }
 
   static async create({
-    editor,
+    mountEl,
     fileService,
     correctionsService,
     onStatus,
@@ -50,7 +56,7 @@ export class EditorComponent {
     onDisabledDblClick
   }) {
     const component = new EditorComponent({
-      editor,
+      mountEl,
       fileService,
       correctionsService,
       onStatus,
@@ -58,6 +64,21 @@ export class EditorComponent {
       onFileChanged,
       onDisabledDblClick
     });
+
+    await component.base.ensureReady();
+
+    component.editor = createEditor({
+      parent: component.base.query("#editor"),
+      initialText: "",
+      onChange: () => component.handleEditorChange(),
+      onApplyIssue: (issue) => component.applyIssue(issue),
+      onDismissIssue: (issue) => component.dismissIssue(issue),
+      onIgnoreIssue: (issue) => component.ignoreIssue(issue),
+      onDisabledDblClick: () => component.handleDisabledDblClick()
+    });
+
+    component.setEditorDisabled(true);
+
     await component.ensureReady();
     return component;
   }
@@ -76,6 +97,10 @@ export class EditorComponent {
 
   getIssues() {
     return this.issues;
+  }
+
+  scrollTo(start, end) {
+    this.editor.scrollTo(start, end);
   }
 
   async openFile(path) {

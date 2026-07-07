@@ -1,5 +1,4 @@
 import { BaseComponent } from "../modals/base-component.js";
-import { createEditor } from "../editor.js";
 import { FileService } from "../services/file-service.js";
 import { CorrectionsService } from "../services/corrections-service.js";
 import { EditorComponent } from "./editor-component.js";
@@ -15,7 +14,6 @@ export class AppComponent {
     window,
     fileService = new FileService(),
     correctionsService = new CorrectionsService(),
-    createEditorFn = createEditor
   }) {
     this.base = new BaseComponent({
       mountEl,
@@ -25,7 +23,6 @@ export class AppComponent {
     this.rendererStart = performance.now();
     this.fileService = fileService;
     this.correctionsService = correctionsService;
-    this.createEditor = createEditorFn;
     this.editorComponent = null;
     this.issuesSidebar = null;
     this.directorySelector = null;
@@ -57,28 +54,19 @@ export class AppComponent {
     const repoStatusDot = this.base.query("#repo-status-dot");
     const repoStatusLabel = this.base.query("#repo-status-label");
 
-    const editor = this.createEditor({
-      parent: this.base.query("#editor"),
-      initialText: "",
-      onChange: () => this.editorComponent?.handleEditorChange(),
-      onApplyIssue: (issue) => this.editorComponent?.applyIssue(issue),
-      onDismissIssue: (issue) => this.editorComponent?.dismissIssue(issue),
-      onIgnoreIssue: (issue) => this.editorComponent?.ignoreIssue(issue),
-      onDisabledDblClick: () => this.editorComponent?.handleDisabledDblClick()
-    });
-
     this.issuesSidebar = await IssuesSidebar.create({
       mountEl: issuesPanel,
       onIssueSelect: (issue) => {
         if (issue.range) {
-          editor.scrollTo(issue.range.start, issue.range.end);
+          this.editorComponent.scrollTo(issue.range.start, issue.range.end);
         }
       },
       onStatus: (message) => this.setStatus(statusLabel, message)
     });
 
+    const mountEl = this.base.query("#editor-mount");
     this.editorComponent = await EditorComponent.create({
-      editor,
+      mountEl,
       fileService: this.fileService,
       correctionsService: this.correctionsService,
       onStatus: (message) => this.setStatus(statusLabel, message),
