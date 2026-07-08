@@ -6,26 +6,24 @@ export class Issue {
     mountEl,
     issue,
     correctionsService = new CorrectionsService(),
-    getText,
-    setText,
-    getFilePath,
-    getDirectory,
-    onStatus,
-    onIssuesUpdate,
-    onSelect
+    filePath,
+    directory,
+    onIgnore,
+    onApply,
+    onDismiss
   }) {
     this.base = new BaseComponent({
       mountEl,
       templateUrl: new URL("./issue.html?raw", import.meta.url)
     });
     this.correctionsService = correctionsService;
-    this.getText = getText ?? (() => "");
-    this.setText = setText ?? (() => {});
-    this.getFilePath = getFilePath ?? (() => null);
-    this.getDirectory = getDirectory ?? (() => null);
-    this.onStatus = onStatus ?? (() => {});
-    this.onIssuesUpdate = onIssuesUpdate ?? (() => {});
-    this.onSelect = onSelect ?? (() => {});
+    this.filePath = filePath;
+    this.directory = directory;
+
+    this.onIgnore = onIgnore ?? (() => {});
+    this.onApply = onApply ?? (() => {});
+    this.onDismiss = onDismiss ?? (() => {});
+
     this.issue = issue?.data ?? issue ?? {};
     this._bound = false;
   }
@@ -69,25 +67,21 @@ export class Issue {
     mountEl,
     issue,
     correctionsService,
-    getText,
-    setText,
-    getFilePath,
-    getDirectory,
-    onStatus,
-    onIssuesUpdate,
-    onSelect
+    filePath,
+    directory,
+    onIgnore,
+    onApply,
+    onDismiss
   }) {
     const component = new Issue({
       mountEl,
       issue,
       correctionsService,
-      getText,
-      setText,
-      getFilePath,
-      getDirectory,
-      onStatus,
-      onIssuesUpdate,
-      onSelect
+      filePath,
+      directory,
+      onIgnore,
+      onApply,
+      onDismiss
     });
     await component.ensureReady();
     return component;
@@ -158,13 +152,7 @@ export class Issue {
       return;
     }
     const issue = this.getIssuePayload();
-    const text = this.getText();
-    const result = await this.correctionsService.applyIssue({
-      filePath,
-      text,
-      issue
-    });
-    this.handleResult(result, { updateText: true });
+    this.onApply(issue);
   }
 
   async handleDismiss() {
@@ -173,14 +161,7 @@ export class Issue {
       return;
     }
     const issue = this.getIssuePayload();
-    const text = this.getText();
-    const result = await this.correctionsService.addDismissedChange({
-      directory: this.getDirectory(),
-      filePath,
-      text,
-      issue
-    });
-    this.handleResult(result, { updateText: false });
+    this.onDismiss(issue);
   }
 
   async handleIgnore() {
@@ -193,27 +174,6 @@ export class Issue {
     if (!word) {
       return;
     }
-    const text = this.getText();
-    const result = await this.correctionsService.addSpellingException({
-      directory: this.getDirectory(),
-      filePath,
-      word,
-      text
-    });
-    this.handleResult(result, { updateText: false });
-  }
-
-  handleResult(result, { updateText }) {
-    if (result?.error) {
-      this.onStatus(result.error);
-      return;
-    }
-    if (updateText && typeof result?.text === "string") {
-      this.setText(result.text);
-    }
-    const issues = this.normalizeIssues(result);
-    if (issues) {
-      this.onIssuesUpdate(issues);
-    }
+    this.onIgnore(issue, word);
   }
 }

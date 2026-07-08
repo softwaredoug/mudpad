@@ -70,9 +70,7 @@ export class EditorComponent {
       parent: component.base.query("#editor"),
       initialText: "",
       onChange: () => component.handleEditorChange(),
-      onApplyIssue: (issue) => component.applyIssue(issue),
-      onDismissIssue: (issue) => component.dismissIssue(issue),
-      onIgnoreIssue: (issue) => component.ignoreIssue(issue),
+      issueContext: component.getIssueContext(),
       onDisabledDblClick: () => component.handleDisabledDblClick()
     });
 

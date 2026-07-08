@@ -1,5 +1,5 @@
 import { BaseComponent } from "../modals/base-component.js";
-import { Issue } from "./issue.js";
+import { createIssueComponents } from "../issues-controller.js";
 
 export class IssuesSidebar {
   constructor({ mountEl, onIssueSelect, onStatus, issueContext }) {
@@ -55,30 +55,20 @@ export class IssuesSidebar {
       return;
     }
 
-    const {
-      correctionsService,
-      getText,
-      setText,
-      getFilePath,
-      getDirectory,
-      onIssuesUpdate,
-      onStatus
-    } = this.issueContext ?? {};
+    const issueContext = {
+      ...this.issueContext,
+      onStatus: this.issueContext?.onStatus ?? this.onStatus
+    };
 
-    for (const issue of issues) {
-      const issueComponent = await Issue.create({
-        mountEl: this.listEl,
-        issue,
-        correctionsService,
-        getText,
-        setText,
-        getFilePath,
-        getDirectory,
-        onStatus: onStatus ?? this.onStatus,
-        onIssuesUpdate,
-        onSelect: (selectedIssue) => this.onIssueSelect(selectedIssue)
-      });
-      this.issueComponents.push(issueComponent);
+    this.issueComponents = await createIssueComponents(
+      this.listEl,
+      issueContext,
+      issues
+    );
+
+    for (const issueComponent of this.issueComponents) {
+      issueComponent.onSelect = (selectedIssue) => this.onIssueSelect(selectedIssue);
+      issueComponent.getFilePath = () => issueComponent.filePath;
     }
   }
 

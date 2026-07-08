@@ -3,6 +3,7 @@ import { EditorView, Decoration, keymap, hoverTooltip, placeholder } from "@code
 import { markdown } from "@codemirror/lang-markdown";
 import { history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
+import { createIssueComponents } from "../issues-controller.js";
 
 const setIssuesEffect = StateEffect.define();
 const setHoverSuppressedEffect = StateEffect.define();
@@ -80,7 +81,7 @@ const hoverSuppressedState = StateField.define({
   }
 });
 
-function createIssuesTooltip({ onApplyIssue, onDismissIssue, onIgnoreIssue } = {}) {
+function createIssuesTooltip({ issueContext } = {}) {
   return hoverTooltip((view, pos) => {
     if (view.state.field(hoverSuppressedState)) {
       return null;
@@ -96,95 +97,42 @@ function createIssuesTooltip({ onApplyIssue, onDismissIssue, onIgnoreIssue } = {
     return {
       pos: match.range.start,
       end: match.range.end,
-        create() {
-          const container = document.createElement("div");
-          container.className = "cm-tooltip-issue";
-          const closeTooltip = () => {
-            view.dispatch({ effects: setHoverSuppressedEffect.of(true) });
-            container.remove();
-            setTimeout(() => {
-              view.dispatch({ effects: setHoverSuppressedEffect.of(false) });
-            }, 250);
-          };
+      create() {
+        const container = document.createElement("div");
+        container.className = "cm-tooltip-issue";
+        const closeTooltip = () => {
+          view.dispatch({ effects: setHoverSuppressedEffect.of(true) });
+          container.remove();
+          setTimeout(() => {
+            view.dispatch({ effects: setHoverSuppressedEffect.of(false) });
+          }, 250);
+        };
 
-        const title = document.createElement("div");
-        title.className = "cm-tooltip-issue-title";
-        title.textContent = match.type?.toUpperCase() ?? "ISSUE";
+        void createIssueComponents(container, issueContext, [match]).then(
+          (components) => {
+            for (const issueComponent of components) {
+              const originalApply = issueComponent.onApply;
+              const originalDismiss = issueComponent.onDismiss;
+              const originalIgnore = issueComponent.onIgnore;
 
-        const message = document.createElement("div");
-        message.className = "cm-tooltip-issue-message";
-        message.textContent = match.message ?? "";
+              issueComponent.onSelect = () => closeTooltip();
+              issueComponent.getFilePath = () => issueComponent.filePath;
 
-        const source = document.createElement("div");
-        source.className = "cm-tooltip-issue-source";
-        source.textContent = `Source: ${match.source ?? "unknown"}`;
-
-        container.appendChild(title);
-        container.appendChild(message);
-        container.appendChild(source);
-
-        if (match.suggestions?.length) {
-          const suggestion = document.createElement("div");
-          suggestion.className = "cm-tooltip-issue-suggestion";
-          suggestion.textContent = `Suggestion: ${match.suggestions[0]}`;
-          container.appendChild(suggestion);
-        }
-
-        if (onApplyIssue || onDismissIssue || onIgnoreIssue) {
-          const actions = document.createElement("div");
-          actions.className = "cm-tooltip-issue-actions";
-
-          if (onApplyIssue) {
-            const applyButton = document.createElement("button");
-            applyButton.type = "button";
-            applyButton.className = "cm-tooltip-issue-action";
-            applyButton.textContent = "Apply";
-            applyButton.disabled = !(match.suggestions && match.suggestions.length);
-            applyButton.addEventListener("click", (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              closeTooltip();
-              onApplyIssue(match);
-            });
-            actions.appendChild(applyButton);
-          }
-
-          if (onDismissIssue) {
-            const dismissButton = document.createElement("button");
-            dismissButton.type = "button";
-            dismissButton.className = "cm-tooltip-issue-action";
-            dismissButton.textContent = "Dismiss";
-            dismissButton.addEventListener("click", (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              closeTooltip();
-              onDismissIssue(match);
-            });
-            actions.appendChild(dismissButton);
-          }
-
-          if (onIgnoreIssue) {
-            const ignoreButton = document.createElement("button");
-            ignoreButton.type = "button";
-            ignoreButton.className = "cm-tooltip-issue-action";
-            ignoreButton.textContent = "Always Ignore";
-            const canIgnore = match.type === "spell" && match.word;
-            ignoreButton.disabled = !canIgnore;
-            if (!canIgnore) {
-              ignoreButton.title = "Available for spelling only";
-            } else {
-                ignoreButton.addEventListener("click", (event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  closeTooltip();
-                  onIgnoreIssue(match);
-                });
+              issueComponent.onApply = async (issue) => {
+                await originalApply?.(issue);
+                closeTooltip();
+              };
+              issueComponent.onDismiss = async (issue) => {
+                await originalDismiss?.(issue);
+                closeTooltip();
+              };
+              issueComponent.onIgnore = async (issue, word) => {
+                await originalIgnore?.(issue, word);
+                closeTooltip();
+              };
             }
-            actions.appendChild(ignoreButton);
           }
-
-          container.appendChild(actions);
-        }
+        );
 
         return { dom: container };
       }
@@ -196,9 +144,7 @@ export function createEditor({
   parent,
   initialText,
   onChange,
-  onApplyIssue,
-  onDismissIssue,
-  onIgnoreIssue,
+  issueContext,
   onDisabledDblClick
 }) {
   const editableCompartment = new Compartment();
@@ -219,7 +165,7 @@ export function createEditor({
       issuesField,
       issuesState,
       hoverSuppressedState,
-      createIssuesTooltip({ onApplyIssue, onDismissIssue, onIgnoreIssue }),
+      createIssuesTooltip({ issueContext }),
       editableCompartment.of(EditorView.editable.of(true)),
       placeholderCompartment.of([]),
       EditorView.updateListener.of((update) => {
