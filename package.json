@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "inspect": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --inspect-brk=5858 .\"",
     "build": "vite build",
     "start": "electron .",
     "test": "node --test tests/unit/*.test.js tests/e2e/*.test.js",

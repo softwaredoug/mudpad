@@ -141,5 +141,6 @@ export async function startLanguageTool({
     throw error;
   }
 
+  console.debug(`[main +${Math.round(performance.now())}ms] LanguageTool started on port ${port}`);
   return { diagnostics, getProcess: () => activeProcess };
 }
