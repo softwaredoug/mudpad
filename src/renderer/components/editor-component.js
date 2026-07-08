@@ -1,4 +1,3 @@
-import { Issue } from "./issue.js";
 import { createEditor } from "./editor.js";
 import { BaseComponent } from "../modals/base-component.js";
 
@@ -97,6 +96,18 @@ export class EditorComponent {
 
   getIssues() {
     return this.issues;
+  }
+
+  getIssueContext() {
+    return {
+      correctionsService: this.correctionsService,
+      getText: () => this.getText(),
+      setText: (text) => this.editor.setText(text),
+      getFilePath: () => this.filePath,
+      getDirectory: () => this.activeDirectory,
+      onStatus: (message) => this.onStatus(message),
+      onIssuesUpdate: (issues) => this.updateIssues(issues)
+    };
   }
 
   scrollTo(start, end) {
@@ -246,7 +257,7 @@ export class EditorComponent {
     const result = await this.correctionsService.applyIssue({
       filePath: this.filePath,
       text,
-      issue: this.getIssueData(issue)
+      issue: issue?.data ?? issue
     });
     if (result?.error) {
       this.onStatus(result.error);
@@ -273,7 +284,7 @@ export class EditorComponent {
       directory: this.activeDirectory,
       filePath: this.filePath,
       text,
-      issue: this.getIssueData(issue)
+      issue: issue?.data ?? issue
     });
     if (result?.error) {
       this.onStatus(result.error);
@@ -318,14 +329,8 @@ export class EditorComponent {
 
   async updateIssues(issueData) {
     this.editor.setIssues(issueData);
-    this.issues = await Promise.all(
-      issueData.map((data) => Issue.create({ editor: this, data }))
-    );
+    this.issues = issueData ?? [];
     this.onIssuesChanged(this.issues);
-  }
-
-  getIssueData(issue) {
-    return issue?.data ?? issue;
   }
 
   isMarkdownFile(path) {

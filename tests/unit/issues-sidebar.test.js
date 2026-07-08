@@ -15,28 +15,48 @@ describe("IssuesSidebar", () => {
     const templates = await loadRendererTemplates();
     global.fetch = createTemplateFetch(templates);
 
-      const actions = [];
-      const issue = {
-        id: "spell-1",
-        type: "spell",
-        word: "teh",
-        message: "Possible misspelling",
-        range: { start: 0, end: 3 },
-        suggestions: ["the"],
-        apply: () => actions.push("apply"),
-        dismiss: () => actions.push("dismiss"),
-        ignore: () => actions.push("ignore")
-      };
+    const actions = [];
+    const issue = {
+      id: "spell-1",
+      type: "spell",
+      word: "teh",
+      message: "Possible misspelling",
+      range: { start: 0, end: 3 },
+      suggestions: ["the"]
+    };
 
-      let selected = null;
-      const sidebar = await IssuesSidebar.create({
-        mountEl,
-        onIssueSelect: (selectedIssue) => {
-          selected = selectedIssue;
-        }
-      });
+    const correctionsService = {
+      async applyIssue() {
+        actions.push("apply");
+        return { text: "the", issues: { spell: [], grammar: [], llm: [] } };
+      },
+      async addDismissedChange() {
+        actions.push("dismiss");
+        return { issues: { spell: [], grammar: [], llm: [] } };
+      },
+      async addSpellingException() {
+        actions.push("ignore");
+        return { issues: { spell: [], grammar: [], llm: [] } };
+      }
+    };
 
-    sidebar.render([issue]);
+    let selected = null;
+    const sidebar = await IssuesSidebar.create({
+      mountEl,
+      onIssueSelect: (selectedIssue) => {
+        selected = selectedIssue;
+      },
+      issueContext: {
+        correctionsService,
+        getText: () => "teh",
+        setText: () => {},
+        getFilePath: () => "/tmp/file.md",
+        getDirectory: () => "/tmp",
+        onIssuesUpdate: () => {}
+      }
+    });
+
+    await sidebar.render([issue]);
 
     const item = mountEl.querySelector(".issue-item");
     assert.ok(item, "renders issue item");
@@ -50,6 +70,8 @@ describe("IssuesSidebar", () => {
     ignoreButton.click();
     applyButton.click();
     dismissButton.click();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.deepEqual(actions, ["ignore", "apply", "dismiss"]);
   });
@@ -65,7 +87,7 @@ describe("IssuesSidebar", () => {
     global.fetch = createTemplateFetch(templates);
 
     const sidebar = await IssuesSidebar.create({ mountEl });
-    sidebar.render([]);
+    await sidebar.render([]);
     const listEl = mountEl.querySelector(".issues-list");
     assert.equal(listEl.textContent.trim(), "No issues");
   });

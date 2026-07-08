@@ -80,7 +80,6 @@ describe("EditorComponent", () => {
     assert.equal(editorComponent.getText(), "Test content");
     assert.equal(publishedIssues.length, 1);
     assert.equal(publishedIssues[0].type, "spell");
-    assert.equal(typeof publishedIssues[0].apply, "function");
   });
 
   it("applyIssue forwards to corrections service and updates issues", async () => {

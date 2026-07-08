@@ -75,6 +75,8 @@ export class AppComponent {
       onDisabledDblClick: () => this.fileList?.createNewFile()
     });
 
+    this.issuesSidebar.setIssueContext(this.editorComponent.getIssueContext());
+
     this.fileList = await FileList.create({
       mountEl: filesPanel,
       fileService: this.fileService,

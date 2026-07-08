@@ -1,7 +1,8 @@
 import { BaseComponent } from "../modals/base-component.js";
+import { Issue } from "./issue.js";
 
 export class IssuesSidebar {
-  constructor({ mountEl, onIssueSelect, onStatus }) {
+  constructor({ mountEl, onIssueSelect, onStatus, issueContext }) {
     this.base = new BaseComponent({
       mountEl,
       templateUrl: new URL("./issues-sidebar.html?raw", import.meta.url)
@@ -9,7 +10,9 @@ export class IssuesSidebar {
     this.document = mountEl?.ownerDocument ?? document;
     this.onIssueSelect = onIssueSelect ?? (() => {});
     this.onStatus = onStatus ?? (() => {});
+    this.issueContext = issueContext ?? {};
     this.listEl = null;
+    this.issueComponents = [];
     this._bound = false;
   }
 
@@ -22,23 +25,28 @@ export class IssuesSidebar {
     this._bound = true;
   }
 
-  static async create({ mountEl, onIssueSelect, onStatus }) {
+  static async create({ mountEl, onIssueSelect, onStatus, issueContext }) {
     const sidebar = new IssuesSidebar({
       mountEl,
       onIssueSelect,
-      onStatus
+      onStatus,
+      issueContext
     });
     await sidebar.ensureReady();
     return sidebar;
   }
 
-  render(issues) {
+  setIssueContext(issueContext) {
+    this.issueContext = issueContext ?? {};
+  }
+
+  async render(issues) {
     if (!this.listEl) {
-      void this.ensureReady().then(() => this.render(issues));
-      return;
+      await this.ensureReady();
     }
 
     this.listEl.innerHTML = "";
+    this.issueComponents = [];
 
     if (!issues?.length) {
       const empty = this.document.createElement("div");
@@ -47,71 +55,34 @@ export class IssuesSidebar {
       return;
     }
 
-    issues.forEach((issue) => {
-      const item = this.document.createElement("div");
-      item.className = "issue-item";
-      item.addEventListener("click", () => this.onIssueSelect(issue));
+    const {
+      correctionsService,
+      getText,
+      setText,
+      getFilePath,
+      getDirectory,
+      onIssuesUpdate,
+      onStatus
+    } = this.issueContext ?? {};
 
-      const type = this.document.createElement("div");
-      type.className = "issue-type";
-      type.textContent = issue.type;
-
-      const message = this.document.createElement("div");
-      message.textContent = issue.message;
-
-      const source = this.document.createElement("div");
-      source.className = "issue-source";
-      source.textContent = `Source: ${issue.source ?? "unknown"}`;
-
-      const actions = this.document.createElement("div");
-      actions.className = "issue-actions";
-
-      const acceptButton = this.document.createElement("button");
-      acceptButton.textContent = "Apply";
-      acceptButton.disabled = !issue.suggestions || issue.suggestions.length === 0;
-      acceptButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        issue.apply();
+    for (const issue of issues) {
+      const issueComponent = await Issue.create({
+        mountEl: this.listEl,
+        issue,
+        correctionsService,
+        getText,
+        setText,
+        getFilePath,
+        getDirectory,
+        onStatus: onStatus ?? this.onStatus,
+        onIssuesUpdate,
+        onSelect: (selectedIssue) => this.onIssueSelect(selectedIssue)
       });
-
-      const rejectButton = this.document.createElement("button");
-      rejectButton.textContent = "Dismiss";
-      rejectButton.addEventListener("click", (event) => {
-        event.stopPropagation();
-        issue.dismiss();
-      });
-
-      const ignoreButton = this.document.createElement("button");
-      ignoreButton.textContent = "Always Ignore";
-      const canIgnore = issue.type === "spell" && issue.word;
-      ignoreButton.disabled = !canIgnore;
-      if (!canIgnore) {
-        ignoreButton.title = "Available for spelling only";
-      } else {
-        ignoreButton.addEventListener("click", (event) => {
-          event.stopPropagation();
-          issue.ignore();
-        });
-      }
-
-      actions.appendChild(ignoreButton);
-      actions.appendChild(acceptButton);
-      actions.appendChild(rejectButton);
-
-      item.appendChild(type);
-      item.appendChild(message);
-      item.appendChild(source);
-      if (issue.suggestions?.[0]) {
-        const suggestion = this.document.createElement("div");
-        suggestion.textContent = `Suggestion: ${issue.suggestions[0]}`;
-        item.appendChild(suggestion);
-      }
-      item.appendChild(actions);
-      this.listEl.appendChild(item);
-    });
+      this.issueComponents.push(issueComponent);
+    }
   }
 
   clear() {
-    this.render([]);
+    void this.render([]);
   }
 }
