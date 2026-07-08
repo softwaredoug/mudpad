@@ -1,5 +1,5 @@
 import { Issue } from "./issue.js";
-import { createEditor } from "../editor.js";
+import { createEditor } from "./editor.js";
 import { BaseComponent } from "../modals/base-component.js";
 
 
