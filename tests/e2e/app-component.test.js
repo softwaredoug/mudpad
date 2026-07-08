@@ -100,6 +100,14 @@ test("AppComponent, file selection", async (t) => {
     assert.equal(activeFileItems.length, 1);
     assert.equal(activeFileItems[0].textContent, "b.md");
   });
+
+  await t.test("select file saves last file", async() => {
+    const fileItems = document.querySelectorAll(".file-item")
+    fileItems[1].dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const lastCall = fileService.setLastFilePath.calls[fileService.setLastFilePath.calls.length - 1];
+    assert.equal(lastCall[0], "/tmp/posts/b.md");
+  });
 })
 
 test("AppComponent (e2e) directory list component", async (t) => {
