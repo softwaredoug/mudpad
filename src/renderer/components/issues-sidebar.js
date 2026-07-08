@@ -1,5 +1,5 @@
 import { BaseComponent } from "../modals/base-component.js";
-import { createIssueComponents } from "../issues-controller.js";
+import { createIssueComponents } from "./issues.js";
 
 export class IssuesSidebar {
   constructor({ mountEl, onIssueSelect, onStatus, issueContext }) {

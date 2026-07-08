@@ -3,7 +3,7 @@ import { EditorView, Decoration, keymap, hoverTooltip, placeholder } from "@code
 import { markdown } from "@codemirror/lang-markdown";
 import { history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
-import { createIssueComponents } from "../issues-controller.js";
+import { createIssueComponents } from "./issues.js";
 
 const setIssuesEffect = StateEffect.define();
 const setHoverSuppressedEffect = StateEffect.define();

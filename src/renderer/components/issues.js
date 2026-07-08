@@ -1,5 +1,5 @@
 
-import { Issue } from "./components/issue.js";
+import { Issue } from "./issue.js";
 
 function normalizeIssues(result) {
   if (!result?.issues) {
