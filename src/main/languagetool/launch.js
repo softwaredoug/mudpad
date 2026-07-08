@@ -77,6 +77,7 @@ export async function startLanguageTool({
     child.on("error", (error) => {
       if (error?.code === "ENOENT") {
         if (onError) {
+          console.debug(`[main +${Math.round(performance.now())}ms] LanguageTool spawn error: ${error.message}. Java not found.`);
           onError({ type: "java-missing", error, diagnostics });
         }
         return;
@@ -85,6 +86,7 @@ export async function startLanguageTool({
       if (!retried) {
         retried = true;
         if (onRedownload) {
+          console.debug(`[main +${Math.round(performance.now())}ms] LanguageTool spawn error: ${error.message}. Retrying with redownload.`);
           onRedownload({ reason: "spawn-error", error, diagnostics });
         }
         void restart();
@@ -92,6 +94,7 @@ export async function startLanguageTool({
       }
 
       if (onError) {
+        console.debug(`[main +${Math.round(performance.now())}ms] LanguageTool spawn error: ${error.message}. No more retries.`);
         onError({ type: "spawn-error", error, diagnostics });
       }
     });

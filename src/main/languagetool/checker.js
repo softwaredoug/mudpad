@@ -137,54 +137,57 @@ export class LanguageToolChecker {
       return { issues: [], error: this.languageToolError };
     }
 
-    try {
-      const body = new URLSearchParams({
-        text: text ?? "",
-        language: "en-US"
-      });
+    for (let retries = 0; retries < 3; retries++) {
+      try {
+        const body = new URLSearchParams({
+          text: text ?? "",
+          language: "en-US"
+        });
 
-      const response = await fetch(this.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      });
+        const response = await fetch(this.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
 
-      if (!response.ok) {
-        console.error(`LanguageTool error: ${response.status} ${response.statusText}`);
-        return { issues: [], error: `LanguageTool error ${response.status}` };
+        if (!response.ok) {
+          console.error(`LanguageTool error: ${response.status} ${response.statusText}`);
+          return { issues: [], error: `LanguageTool error ${response.status}` };
+        }
+
+        const data = await response.json();
+        const issues = (data.matches ?? []).map((match, index) => {
+          const start = match.offset ?? 0;
+          const length = match.length ?? 0;
+          const suggestions = (match.replacements ?? []).map((rep) => rep.value);
+          const isSpelling = match.rule?.issueType === "misspelling";
+          const word = isSpelling ? (text ?? "").slice(start, start + length) : undefined;
+          return {
+            id: `grammar-${index}-${start}`,
+            type: isSpelling ? "spell" : "grammar",
+            word,
+            range: { start, end: start + length },
+            message: match.message ?? "Grammar issue",
+            suggestions,
+            source: "languagetool",
+            confidence: 0.6,
+            status: "open"
+          };
+        });
+
+        return { issues, error: null };
+      } catch (error) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (retries + 1)));
+        console.log(`[main +${Math.round(performance.now())}ms] LanguageTool check error: ${error.message}`);
+        if (!this.languageToolErrorShown) {
+          showLanguageToolError(
+            "LanguageTool not reachable",
+            "The grammar server is not responding. Ensure Java is installed and LanguageTool can launch."
+          );
+        }
       }
-
-      const data = await response.json();
-      const issues = (data.matches ?? []).map((match, index) => {
-        const start = match.offset ?? 0;
-        const length = match.length ?? 0;
-        const suggestions = (match.replacements ?? []).map((rep) => rep.value);
-        const isSpelling = match.rule?.issueType === "misspelling";
-        const word = isSpelling ? (text ?? "").slice(start, start + length) : undefined;
-        return {
-          id: `grammar-${index}-${start}`,
-          type: isSpelling ? "spell" : "grammar",
-          word,
-          range: { start, end: start + length },
-          message: match.message ?? "Grammar issue",
-          suggestions,
-          source: "languagetool",
-          confidence: 0.6,
-          status: "open"
-        };
-      });
-
-      return { issues, error: null };
-    } catch (error) {
-      console.log(`[main +${Math.round(performance.now())}ms] LanguageTool check error: ${error.message}`);
-      if (!this.languageToolErrorShown) {
-        showLanguageToolError(
-          "LanguageTool not reachable",
-          "The grammar server is not responding. Ensure Java is installed and LanguageTool can launch."
-        );
-      }
-      return { issues: [], error: "LanguageTool not reachable" };
     }
+    return { issues: [], error: "LanguageTool not reachable" };
   }
 
 }
