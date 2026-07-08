@@ -3,13 +3,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import { LanguageToolChecker } from "./languagetool/index.js";
-import * as fileOps from "./file-ops.js";
 import { createCorrectionsEngine } from "./corrections.js";
-import { Worker } from "worker_threads";
 
 import { LastOpenedAPI } from "./last-opened/api.js";
+import { FileOpsAPI } from "./file-ops/api.js";
 
 LastOpenedAPI.create(app, ipcMain);
+FileOpsAPI.create(ipcMain);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -126,24 +126,6 @@ ipcMain.handle("set-corrections-directory", async (_event, directory) => {
   return { ok: true };
 });
 
-ipcMain.handle("list-text-files", async (_event, payload) =>
-  listTextFilesInWorker(payload)
-);
-
-ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePath));
-
-ipcMain.handle("save-file", async (_event, payload) => fileOps.saveFile(payload));
-
-ipcMain.handle("create-new-file", async (_event, directory) =>
-  fileOps.createNewFile(directory)
-);
-
-ipcMain.handle("create-folder", async (_event, payload) => fileOps.createFolder(payload));
-
-ipcMain.handle("rename-file", async (_event, payload) => fileOps.renameFile(payload));
-
-ipcMain.handle("delete-file", async (_event, payload) => fileOps.deleteFile(payload));
-
 ipcMain.handle("add-spelling-exception", async (_event, payload) =>
   {
     const fileCorrections = correctionsEngine.getFileCorrections(payload?.filePath);
@@ -171,40 +153,6 @@ ipcMain.handle("apply-issue", async (_event, payload) => {
   }
   return fileCorrections.applyIssue({ issue: payload?.issue, text: payload?.text ?? "" });
 });
-
-ipcMain.handle("save-and-commit", async (_event, payload) => fileOps.saveAndCommit(payload));
-
-ipcMain.handle("get-git-sync-status", async (_event, directory) =>
-  fileOps.getGitStatus(directory, { fetch: true })
-);
-
-ipcMain.handle("sync-with-origin", async (_event, directory) =>
-  fileOps.syncWithOrigin(directory)
-);
-
-async function listTextFilesInWorker(payload) {
-  return new Promise((resolve) => {
-    const worker = new Worker(new URL("./workers/list-files-worker.js", import.meta.url), {
-      workerData: payload ?? {}
-    });
-
-    worker.once("message", (message) => {
-      resolve(message);
-      worker.terminate();
-    });
-
-    worker.once("error", (error) => {
-      resolve({ files: [], tooMany: false, error: error?.message || "Failed to list files." });
-      worker.terminate();
-    });
-
-    worker.once("exit", (code) => {
-      if (code !== 0) {
-        resolve({ files: [], tooMany: false, error: `Worker exited with code ${code}` });
-      }
-    });
-  });
-}
 
 ipcMain.handle("check-corrections", async (_event, payload) =>
   {

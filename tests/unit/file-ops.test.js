@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createNewFile, deleteFile, listTextFiles, saveFile } from "../../src/main/file-ops.js";
+import { createNewFile, deleteFile, listTextFiles, saveFile } from "../../src/main/file-ops/file-ops.js";
 
 const execFileAsync = promisify(execFile);
 
