@@ -179,12 +179,6 @@ export class LanguageToolChecker {
       } catch (error) {
         await new Promise((resolve) => setTimeout(resolve, 500 * (retries + 1)));
         console.log(`[main +${Math.round(performance.now())}ms] LanguageTool check error: ${error.message}`);
-        if (!this.languageToolErrorShown) {
-          showLanguageToolError(
-            "LanguageTool not reachable",
-            "The grammar server is not responding. Ensure Java is installed and LanguageTool can launch."
-          );
-        }
       }
     }
     return { issues: [], error: "LanguageTool not reachable" };
