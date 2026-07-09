@@ -53,7 +53,7 @@ test("AppComponent, file selection", async (t) => {
     const fileItems = document.querySelectorAll(".file-item");
     fileItems[1].dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const lastCall = fileService.setLastFilePath.calls[fileService.setLastFilePath.calls.length - 1];
+    const lastCall = fileService.setLastFilePath.lastCall();
     assert.equal(lastCall[0], "/tmp/posts/b.md");
   });
 

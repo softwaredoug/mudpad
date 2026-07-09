@@ -47,7 +47,7 @@ test("AppComponent (e2e) editor", async (t) => {
 
     const fileService = app.fileService;
     assert.equal(fileService.createNewFile.calls.length, 1);
-    assert.equal(fileService.createNewFile.calls[0][0], "/tmp/posts");
+    assert.equal(fileService.createNewFile.lastCall()[0], "/tmp/posts");
 
     const updatedEditor = document.querySelector(".cm-content");
     assert.equal(updatedEditor.textContent, "New file content");

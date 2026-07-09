@@ -6,6 +6,12 @@ function trackCalls(fn) {
     return fn(...args);
   }
   wrapped.calls = wrapped.calls || [];
+  wrapped.lastCall = () => {
+    if (!wrapped.calls.length) {
+      throw new Error(`Expected ${fn.name || "anonymous"} to be called at least once.`);
+    }
+    return wrapped.calls[wrapped.calls.length - 1];
+  };
   return wrapped
 }
 

@@ -36,7 +36,7 @@ test("AppComponent (e2e) directory list component", async (t) => {
     input.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     const fileService = app.fileService;
-    assert.equal(fileService.listTextFiles.calls[0][0].directory, "/tmp/foo/bar");
+    assert.equal(fileService.listTextFiles.lastCall()[0].directory, "/tmp/foo/bar");
   });
 
   await t.test("renders file list after selecting a directory", async () => {
@@ -67,7 +67,7 @@ test("AppComponent (e2e) directory list component", async (t) => {
     input.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const call = app.fileService.listTextFiles.calls[0][0];
+    const call = app.fileService.listTextFiles.lastCall()[0];
     assert.equal(call.directory, "/tmp/posts");
     assert.equal(call.pattern, "**/*.md");
   });

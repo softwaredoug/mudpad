@@ -61,7 +61,7 @@ test("RenameModal (e2e)", async (t) => {
     confirmButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const lastCall = app.fileService.renameFile.calls[0][0];
+    const lastCall = app.fileService.renameFile.lastCall()[0];
     assert.equal(lastCall.oldPath, "/tmp/posts/a.md");
     assert.equal(lastCall.newName, "renamed.md");
 
@@ -182,7 +182,7 @@ test("RenameModal (e2e)", async (t) => {
     confirmButton.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const lastCall = app.fileService.renameFile.calls[0][0];
+    const lastCall = app.fileService.renameFile.lastCall()[0];
     assert.equal(lastCall.messageShort, "Rename file");
     assert.equal(lastCall.messageLong, "More detail");
   });
