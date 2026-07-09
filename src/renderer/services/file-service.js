@@ -66,4 +66,8 @@ export class FileService {
   syncWithOrigin(directory) {
     return window.api.syncWithOrigin(directory);
   }
+
+  saveImage(payload) {
+    return window.api.saveImage(payload);
+  }
 }

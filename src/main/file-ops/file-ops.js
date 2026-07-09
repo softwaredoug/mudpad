@@ -222,6 +222,48 @@ export async function createFolder({ directory, name }) {
   }
 }
 
+export async function saveImage({ directory, filePath, sourcePath, buffer, extension, mimeType } = {}) {
+  const startDir = directory || (filePath ? path.dirname(filePath) : null);
+  if (!startDir) {
+    return { error: "No directory selected." };
+  }
+
+  const repoRoot = await resolveRepoRoot(startDir);
+  if (!repoRoot) {
+    return { error: "No git repository found." };
+  }
+
+  const imagesDir = path.join(repoRoot, "images");
+  await fs.mkdir(imagesDir, { recursive: true });
+
+  const ext = resolveImageExtension({ sourcePath, extension, mimeType });
+  const nextIndex = await resolveNextImageIndex(imagesDir);
+  const fileName = `image${nextIndex}${ext}`;
+  const targetPath = path.join(imagesDir, fileName);
+
+  try {
+    if (sourcePath) {
+      await fs.copyFile(sourcePath, targetPath);
+    } else if (buffer) {
+      const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+      await fs.writeFile(targetPath, data);
+    } else {
+      return { error: "No image data provided." };
+    }
+  } catch (error) {
+    return { error: error?.message || "Failed to save image." };
+  }
+
+  const relativePath = path.relative(repoRoot, targetPath);
+  try {
+    await runGit(["add", "-A", "--", relativePath], repoRoot);
+  } catch (error) {
+    return { error: error?.stderr || error?.message || "Failed to stage image." };
+  }
+
+  return { path: targetPath, relativePath, repoRoot, fileName };
+}
+
 export async function saveAndCommit({ path: filePath, content, messageShort, messageLong }) {
   if (!filePath) {
     return { error: "No file selected." };
@@ -567,4 +609,53 @@ function formatNewFileName(date) {
   const month = pad(date.getMonth() + 1);
   const day = pad(date.getDate());
   return `${year}-${month}-${day}-new-file`;
+}
+
+function resolveImageExtension({ sourcePath, extension, mimeType } = {}) {
+  if (sourcePath) {
+    const fromPath = path.extname(sourcePath).toLowerCase();
+    if (fromPath) {
+      return fromPath;
+    }
+  }
+
+  if (extension) {
+    const normalized = extension.startsWith(".") ? extension : `.${extension}`;
+    return normalized.toLowerCase();
+  }
+
+  if (mimeType) {
+    const lower = mimeType.toLowerCase();
+    if (lower.includes("png")) return ".png";
+    if (lower.includes("jpeg")) return ".jpg";
+    if (lower.includes("jpg")) return ".jpg";
+    if (lower.includes("gif")) return ".gif";
+    if (lower.includes("webp")) return ".webp";
+  }
+
+  return ".png";
+}
+
+async function resolveNextImageIndex(imagesDir) {
+  let maxIndex = 0;
+  try {
+    const entries = await fs.readdir(imagesDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue;
+      }
+      const match = entry.name.match(/^image(\d+)\.[^.]+$/i);
+      if (!match) {
+        continue;
+      }
+      const value = Number(match[1]);
+      if (Number.isFinite(value)) {
+        maxIndex = Math.max(maxIndex, value);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return maxIndex + 1;
 }

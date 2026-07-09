@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("api", {
   saveAndCommit: (payload) => ipcRenderer.invoke("save-and-commit", payload),
   getGitSyncStatus: (directory) => ipcRenderer.invoke("get-git-sync-status", directory),
   syncWithOrigin: (directory) => ipcRenderer.invoke("sync-with-origin", directory),
+  saveImage: (payload) => ipcRenderer.invoke("save-image", payload),
   checkCorrections: (payload) => ipcRenderer.invoke("check-corrections", payload),
   analyzeCorrections: (payload) => ipcRenderer.invoke("analyze-corrections", payload)
 });

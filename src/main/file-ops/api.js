@@ -29,6 +29,8 @@ export class FileOpsAPI {
 
     ipcMain.handle("save-and-commit", async (_event, payload) => api.saveAndCommit(payload));
 
+    ipcMain.handle("save-image", async (_event, payload) => api.saveImage(payload));
+
     ipcMain.handle("get-git-sync-status", async (_event, directory) =>
       api.getGitStatus(directory, { fetch: true })
     );
@@ -94,6 +96,10 @@ export class FileOpsAPI {
 
   async saveAndCommit(payload) {
     return fileOps.saveAndCommit(payload);
+  }
+
+  async saveImage(payload) {
+    return fileOps.saveImage(payload);
   }
 
   async getGitStatus(directory, options) {

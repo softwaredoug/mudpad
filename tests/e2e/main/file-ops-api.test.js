@@ -395,6 +395,72 @@ describe("file ops API", () => {
     });
   });
 
+  describe("image save scenarios", () => {
+    it("saves a clipboard image to the repo images directory and stages it", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const imagesDir = path.join(tmpDir, "images");
+        await mkdir(imagesDir, { recursive: true });
+
+        await writeFile(path.join(imagesDir, "image1.png"), "one", "utf8");
+        await writeFile(path.join(imagesDir, "image3.png"), "three", "utf8");
+
+        const result = await api.saveImage({
+          directory: tmpDir,
+          buffer: Buffer.from("clipboard"),
+          extension: "png"
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.relativePath, "images/image4.png");
+
+        const statusAfter = (await runGit(["status", "--porcelain"], tmpDir)).stdout.trim();
+        assert.match(statusAfter, /^A\s+images\/image4\.png$/m);
+      });
+    });
+
+    it("saves a dragged file into images and increments across extensions", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const imagesDir = path.join(tmpDir, "images");
+        await mkdir(imagesDir, { recursive: true });
+
+        await writeFile(path.join(imagesDir, "image2.jpg"), "two", "utf8");
+        await writeFile(path.join(imagesDir, "image5.png"), "five", "utf8");
+
+        const sourcePath = path.join(tmpDir, "drop.gif");
+        await writeFile(sourcePath, "gif", "utf8");
+
+        const result = await api.saveImage({
+          directory: tmpDir,
+          sourcePath
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.relativePath, "images/image6.gif");
+
+        const statusAfter = (await runGit(["status", "--porcelain"], tmpDir)).stdout.trim();
+        assert.match(statusAfter, /^A\s+images\/image6\.gif$/m);
+      });
+    });
+
+    it("returns an error when saving without a repo", async () => {
+      await withTempDir(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const imagesDir = path.join(tmpDir, "images");
+        await mkdir(imagesDir, { recursive: true });
+
+        const result = await api.saveImage({
+          directory: tmpDir,
+          buffer: Buffer.from("clipboard"),
+          extension: "png"
+        });
+
+        assert.ok(result.error);
+      });
+    });
+  });
+
   describe("commit scenarios", () => {
     it("saves and commits a file in a repo", async () => {
       await withTempRepo(async (tmpDir) => {

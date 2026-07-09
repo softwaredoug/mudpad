@@ -84,6 +84,9 @@ export function createFileServiceMock(overrides = {}) {
     async renameFile(_payload) {
       return { ok: true };
     },
+    async saveImage(_payload) {
+      return { ok: true };
+    },
     ...overrides
   };
   return wrapAllFunctions(mock);
