@@ -233,7 +233,11 @@ export async function saveImage({ directory, filePath, sourcePath, buffer, exten
     return { error: "No git repository found." };
   }
 
-  const imagesDir = path.join(repoRoot, "images");
+  const resolvedImagesDir = await resolveImagesDirectory({ filePath, repoRoot });
+  if (resolvedImagesDir?.error) {
+    return { error: resolvedImagesDir.error };
+  }
+  const imagesDir = resolvedImagesDir?.path ?? path.join(repoRoot, "images");
   await fs.mkdir(imagesDir, { recursive: true });
 
   const ext = resolveImageExtension({ sourcePath, extension, mimeType });
@@ -589,6 +593,75 @@ async function resolveFrontmatter(startDir, fallback) {
   }
 
   return fallback;
+}
+
+async function resolveImagesDirectory({ filePath, repoRoot } = {}) {
+  const fallback = { path: path.join(repoRoot, "images") };
+  if (!filePath) {
+    return fallback;
+  }
+
+  let content;
+  try {
+    content = await fs.readFile(filePath, "utf8");
+  } catch {
+    return fallback;
+  }
+
+  const frontmatter = extractFrontmatterBlock(content);
+  if (!frontmatter) {
+    return fallback;
+  }
+
+  const imagesDirValue = parseFrontmatterValue(frontmatter, "images_dir");
+  if (!imagesDirValue) {
+    return fallback;
+  }
+
+  const trimmed = imagesDirValue.replace(/\/+$/, "").trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  const repoRootResolved = await normalizePath(repoRoot);
+  const fileDirResolved = await normalizePath(path.dirname(filePath));
+  const targetDir = trimmed.startsWith("/")
+    ? path.join(repoRootResolved, trimmed.slice(1))
+    : path.resolve(fileDirResolved, trimmed);
+  const targetResolved = await normalizePath(targetDir);
+  const relative = path.relative(repoRootResolved, targetResolved);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return { error: "images_dir is outside the git repository." };
+  }
+
+  return { path: targetDir };
+}
+
+function extractFrontmatterBlock(content) {
+  if (!content) {
+    return null;
+  }
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)\r?\n/);
+  return match ? match[0] : null;
+}
+
+function parseFrontmatterValue(frontmatter, key) {
+  if (!frontmatter || !key) {
+    return null;
+  }
+  const regex = new RegExp(`^\\s*${key}\\s*:\\s*(.+)\\s*$`, "m");
+  const match = frontmatter.match(regex);
+  if (!match) {
+    return null;
+  }
+  let value = match[1].trim();
+  if (
+    (value.startsWith("\"") && value.endsWith("\"")) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  return value || null;
 }
 
 async function runGit(args, cwd) {

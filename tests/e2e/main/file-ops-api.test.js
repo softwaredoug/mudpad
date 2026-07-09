@@ -419,6 +419,93 @@ describe("file ops API", () => {
       });
     });
 
+    it("uses repo-root images_dir from frontmatter", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const postsDir = path.join(tmpDir, "posts");
+        await mkdir(postsDir, { recursive: true });
+        const filePath = path.join(postsDir, "draft.md");
+        const frontmatter = [
+          "---",
+          "title: Test",
+          "images_dir: /assets/images/",
+          "---",
+          ""
+        ].join("\n");
+        await writeFile(filePath, frontmatter, "utf8");
+
+        const result = await api.saveImage({
+          filePath,
+          buffer: Buffer.from("clipboard"),
+          extension: "png"
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.relativePath, "assets/images/image1.png");
+
+        const statusAfter = (await runGit(["status", "--porcelain"], tmpDir)).stdout.trim();
+        assert.match(statusAfter, /^A\s+assets\/images\/image1\.png$/m);
+      });
+    });
+
+    it("uses relative images_dir from frontmatter", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const postsDir = path.join(tmpDir, "posts");
+        await mkdir(postsDir, { recursive: true });
+        const filePath = path.join(postsDir, "draft.md");
+        const frontmatter = [
+          "---",
+          "title: Test",
+          "images_dir: \"media/images\"",
+          "---",
+          ""
+        ].join("\n");
+        await writeFile(filePath, frontmatter, "utf8");
+
+        const result = await api.saveImage({
+          filePath,
+          buffer: Buffer.from("clipboard"),
+          extension: "png"
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.relativePath, "posts/media/images/image1.png");
+
+        const statusAfter = (await runGit(["status", "--porcelain"], tmpDir)).stdout.trim();
+        assert.match(statusAfter, /^A\s+posts\/media\/images\/image1\.png$/m);
+      });
+    });
+
+    it("creates images_dir when missing", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const postsDir = path.join(tmpDir, "posts");
+        await mkdir(postsDir, { recursive: true });
+        const filePath = path.join(postsDir, "draft.md");
+        const frontmatter = [
+          "---",
+          "title: Test",
+          "images_dir: assets/missing-images",
+          "---",
+          ""
+        ].join("\n");
+        await writeFile(filePath, frontmatter, "utf8");
+
+        const result = await api.saveImage({
+          filePath,
+          buffer: Buffer.from("clipboard"),
+          extension: "png"
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.relativePath, "posts/assets/missing-images/image1.png");
+
+        const statusAfter = (await runGit(["status", "--porcelain"], tmpDir)).stdout.trim();
+        assert.match(statusAfter, /^A\s+posts\/assets\/missing-images\/image1\.png$/m);
+      });
+    });
+
     it("saves a dragged file into images and increments across extensions", async () => {
       await withTempRepo(async (tmpDir) => {
         const api = new FileOpsAPI();

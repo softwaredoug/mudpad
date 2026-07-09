@@ -37,6 +37,7 @@ export class EditorComponent {
     this.imagePreviewModal = imagePreviewModal ?? null;
     this.filePath = null;
     this.activeDirectory = null;
+    this.repoRoot = null;
     this.originalText = "";
     this.issues = [];
     this.debounceHandle = null;
@@ -148,6 +149,8 @@ export class EditorComponent {
     }
     const basePath = dirname(path);
     this.correctionsService.setCorrectionsDirectory(basePath);
+    const status = await this.fileService.getGitSyncStatus(basePath);
+    this.repoRoot = status?.repoRoot ?? null;
     this.filePath = result.path;
     this.editor.setText(result.content ?? "");
     this.originalText = result.content ?? "";
@@ -191,6 +194,12 @@ export class EditorComponent {
     }
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
       return trimmed;
+    }
+    if (trimmed.startsWith("/") && this.repoRoot) {
+      const repoBase = this.repoRoot.replace(/\\/g, "/");
+      const repo = repoBase.endsWith("/") ? repoBase : `${repoBase}/`;
+      const normalized = trimmed.replace(/^\/+/, "");
+      return `file://${repo}${normalized}`;
     }
     if (!this.filePath) {
       return null;
