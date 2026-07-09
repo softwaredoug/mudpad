@@ -15,6 +15,9 @@ function applyDomGlobals(dom) {
   global.getComputedStyle = dom.window.getComputedStyle;
   global.requestAnimationFrame = dom.window.requestAnimationFrame;
   global.cancelAnimationFrame = dom.window.cancelAnimationFrame;
+  if (dom.window.Range && !dom.window.Range.prototype.getClientRects) {
+    dom.window.Range.prototype.getClientRects = () => [];
+  }
 }
 
 async function setupApp({ fileServiceOverrides } = {}) {
