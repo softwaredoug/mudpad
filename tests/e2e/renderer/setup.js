@@ -18,7 +18,7 @@ export function applyDomGlobals(dom) {
   }
 }
 
-export async function setupApp({ fileServiceOverrides } = {}) {
+export async function setupApp({ fileServiceOverrides, correctionsServiceOverrides } = {}) {
   const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
     url: "http://localhost/",
     pretendToBeVisual: true
@@ -30,11 +30,12 @@ export async function setupApp({ fileServiceOverrides } = {}) {
   global.fetch = createTemplateFetch(templates);
 
   const fileService = createFileServiceMock(fileServiceOverrides);
+  const correctionsService = createCorrectionsServiceMock(correctionsServiceOverrides);
   const app = new AppComponent({
     mountEl: document.getElementById("root"),
     window: dom.window,
     fileService,
-    correctionsService: createCorrectionsServiceMock()
+    correctionsService
   });
 
   await app.init();
