@@ -158,7 +158,7 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
     }
   }
 
-  const frontmatter = [
+  const defaultFrontmatter = [
     "---",
     "layout: post",
     "title: \"New blog article\"",
@@ -168,6 +168,7 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
     "---",
     ""
   ].join("\n");
+  const frontmatter = await resolveFrontmatter(directory, defaultFrontmatter);
 
   await fs.writeFile(filePath, frontmatter, "utf8");
   const repoRoot = await resolveRepoRoot(directory);
@@ -510,6 +511,42 @@ async function resolveRepoRoot(startDir) {
     }
     return null;
   }
+}
+
+async function resolveFrontmatter(startDir, fallback) {
+  try {
+    const repoRoot = await resolveRepoRoot(startDir);
+    if (!repoRoot) {
+      return fallback;
+    }
+
+    let currentDir = await normalizePath(startDir);
+    const repoRootResolved = await normalizePath(repoRoot);
+
+    while (true) {
+      const candidate = path.join(currentDir, ".frontmatter.txt");
+      try {
+        await fs.access(candidate);
+        return await fs.readFile(candidate, "utf8");
+      } catch {
+        // ignore
+      }
+
+      if (currentDir === repoRootResolved) {
+        break;
+      }
+
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        break;
+      }
+      currentDir = parentDir;
+    }
+  } catch {
+    // ignore
+  }
+
+  return fallback;
 }
 
 async function runGit(args, cwd) {

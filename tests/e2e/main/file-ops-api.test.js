@@ -181,6 +181,40 @@ describe("file ops API", () => {
         assert.match(statusAfterCreate, /^A\s+posts\//m);
       });
     });
+
+    it("uses repo frontmatter when creating in a subdirectory", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const frontmatter = "---\nlayout: note\ntitle: \"Custom\"\n---\n";
+        await writeFile(path.join(tmpDir, ".frontmatter.txt"), frontmatter, "utf8");
+
+        const subDir = path.join(tmpDir, "posts");
+        await mkdir(subDir, { recursive: true });
+
+        const date = new Date("2026-06-23T10:00:00");
+        const created = await api.createNewFile(subDir, { date });
+
+        assert.equal(created.content, frontmatter);
+      });
+    });
+
+    it("prefers the closest frontmatter file when multiple exist", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const rootFrontmatter = "---\nlayout: root\n---\n";
+        await writeFile(path.join(tmpDir, ".frontmatter.txt"), rootFrontmatter, "utf8");
+
+        const subDir = path.join(tmpDir, "posts");
+        await mkdir(subDir, { recursive: true });
+        const nestedFrontmatter = "---\nlayout: nested\n---\n";
+        await writeFile(path.join(subDir, ".frontmatter.txt"), nestedFrontmatter, "utf8");
+
+        const date = new Date("2026-06-23T10:00:00");
+        const created = await api.createNewFile(subDir, { date });
+
+        assert.equal(created.content, nestedFrontmatter);
+      });
+    });
   });
 
   describe("folder scenarios", () => {
