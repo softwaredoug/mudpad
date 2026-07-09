@@ -182,6 +182,28 @@ describe("file ops API", () => {
       });
     });
 
+    it("uses generic default frontmatter when none exists", async () => {
+      await withTempRepo(async (tmpDir) => {
+        const api = new FileOpsAPI();
+        const date = new Date("2026-06-23T10:00:00");
+
+        const created = await api.createNewFile(tmpDir, { date });
+        const expected = [
+          "---",
+          "layout: post",
+          "title: \"New post\"",
+          "date: 2026-06-23",
+          "categories: []",
+          "tags: []",
+          "draft: true",
+          "---",
+          ""
+        ].join("\n");
+
+        assert.equal(created.content, expected);
+      });
+    });
+
     it("uses repo frontmatter when creating in a subdirectory", async () => {
       await withTempRepo(async (tmpDir) => {
         const api = new FileOpsAPI();

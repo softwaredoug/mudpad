@@ -161,9 +161,10 @@ export async function createNewFile(directory, { date = new Date() } = {}) {
   const defaultFrontmatter = [
     "---",
     "layout: post",
-    "title: \"New blog article\"",
-    "description: \"A new blog by Doug\"",
-    "category: blog",
+    "title: \"New post\"",
+    `date: ${formatFrontmatterDate(date)}`,
+    "categories: []",
+    "tags: []",
     "draft: true",
     "---",
     ""
@@ -682,6 +683,14 @@ function formatNewFileName(date) {
   const month = pad(date.getMonth() + 1);
   const day = pad(date.getDate());
   return `${year}-${month}-${day}-new-file`;
+}
+
+function formatFrontmatterDate(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  return `${year}-${month}-${day}`;
 }
 
 function resolveImageExtension({ sourcePath, extension, mimeType } = {}) {
