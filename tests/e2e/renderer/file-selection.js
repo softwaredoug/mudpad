@@ -1,62 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { JSDOM } from "jsdom";
-import { AppComponent } from "../../../src/renderer/components/app-component.js";
-import { createFileServiceMock, createCorrectionsServiceMock } from "../../helpers/service-mocks.js";
-import { loadRendererTemplates, createTemplateFetch } from "../../helpers/template-mocks.js";
-
-function applyDomGlobals(dom) {
-  global.window = dom.window;
-  global.document = dom.window.document;
-  global.Window = dom.window.Window;
-  global.MutationObserver = dom.window.MutationObserver;
-  global.HTMLElement = dom.window.HTMLElement;
-  global.Node = dom.window.Node;
-  global.getComputedStyle = dom.window.getComputedStyle;
-  global.requestAnimationFrame = dom.window.requestAnimationFrame;
-  global.cancelAnimationFrame = dom.window.cancelAnimationFrame;
-  if (dom.window.Range && !dom.window.Range.prototype.getClientRects) {
-    dom.window.Range.prototype.getClientRects = () => [];
-  }
-}
+import { setupApp } from "./setup.js";
 
 test("AppComponent, file selection", async (t) => {
-  const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", {
-    url: "http://localhost/",
-    pretendToBeVisual: true
-  });
-  applyDomGlobals(dom);
-  const { document } = dom.window;
-
-  const templates = await loadRendererTemplates();
-  global.fetch = createTemplateFetch(templates);
-
-  const fileService = createFileServiceMock({
-    async showDirectoryPicker() {
-      return { path: "/tmp/posts" };
-    },
-    async listTextFiles() {
-      return {
-        files: [
-          { path: "/tmp/posts/a.md", relativePath: "a.md" },
-          { path: "/tmp/posts/b.md", relativePath: "b.md" }
-        ],
-        tooMany: false
-      };
-    },
-    async readFile(path) {
-      return { path, content: "Hello from file" };
+  const { dom, document, app } = await setupApp({
+    fileServiceOverrides: {
+      async showDirectoryPicker() {
+        return { path: "/tmp/posts" };
+      },
+      async listTextFiles() {
+        return {
+          files: [
+            { path: "/tmp/posts/a.md", relativePath: "a.md" },
+            { path: "/tmp/posts/b.md", relativePath: "b.md" }
+          ],
+          tooMany: false
+        };
+      },
+      async readFile(path) {
+        return { path, content: "Hello from file" };
+      }
     }
   });
 
-  const app = new AppComponent({
-    mountEl: document.getElementById("root"),
-    window: dom.window,
-    fileService,
-    correctionsService: createCorrectionsServiceMock()
-  });
-
-  await app.init();
+  const fileService = app.fileService;
 
   const selectButton = document.querySelector(".select-directory-button");
   selectButton.click();
@@ -88,5 +55,45 @@ test("AppComponent, file selection", async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const lastCall = fileService.setLastFilePath.calls[fileService.setLastFilePath.calls.length - 1];
     assert.equal(lastCall[0], "/tmp/posts/b.md");
+  });
+
+  await t.test("rename modal opens for active file", async () => {
+    const fileItems = document.querySelectorAll(".file-item");
+    const target = fileItems[0];
+    target.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    target.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const renameModal = document.querySelector("#rename-modal");
+    assert.ok(renameModal);
+    assert.ok(!renameModal.classList.contains("hidden"));
+  });
+
+  await t.test("delete modal opens from rename modal", async () => {
+    const fileItems = document.querySelectorAll(".file-item");
+    const target = fileItems[0];
+    target.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    target.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const deleteButton = document.querySelector("#rename-delete");
+    deleteButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const deleteModal = document.querySelector("#delete-modal");
+    assert.ok(deleteModal);
+    assert.ok(!deleteModal.classList.contains("hidden"));
+  });
+
+  await t.test("new folder modal opens", async () => {
+    const newFolderButton = document.querySelector(".new-folder-button");
+    newFolderButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const newFolderModal = document.querySelector("#new-folder-modal");
+    assert.ok(newFolderModal);
+    assert.ok(!newFolderModal.classList.contains("hidden"));
   });
 });
