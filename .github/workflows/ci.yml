@@ -29,4 +29,4 @@ jobs:
         run: node --test tests/unit/*.test.js
 
       - name: E2E tests
-        run: node --test tests/e2e/*.test.js
+        run: node --test tests/e2e/main/*.test.js tests/e2e/renderer/*.js

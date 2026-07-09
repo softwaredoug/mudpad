@@ -13,6 +13,6 @@ repos:
         pass_filenames: false
       - id: e2e-tests
         name: e2e tests
-        entry: node --test tests/e2e/*.test.js
+        entry: node --test tests/e2e/main/*.test.js tests/e2e/renderer/*.js
         language: system
         pass_filenames: false
