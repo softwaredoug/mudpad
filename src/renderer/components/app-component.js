@@ -40,6 +40,10 @@ export class AppComponent {
   }
 
   async init() {
+    return this.ensureReady();
+  }
+
+  async ensureReady() {
     await this.base.ensureReady();
     if (this._bound) {
       return;
@@ -146,6 +150,17 @@ export class AppComponent {
 
     this._bound = true;
     this.logStartup("Renderer initialized");
+  }
+
+  static async create({ mountEl, window, fileService, correctionsService }) {
+    const component = new AppComponent({
+      mountEl,
+      window,
+      fileService,
+      correctionsService
+    });
+    await component.ensureReady();
+    return component;
   }
 
   setStatus(labelEl, message) {

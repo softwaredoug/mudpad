@@ -7,6 +7,7 @@ import { FileList } from "../../src/renderer/components/file-list.js";
 import { IssuesSidebar } from "../../src/renderer/components/issues-sidebar.js";
 import { EditorComponent } from "../../src/renderer/components/editor-component.js";
 import { Issue } from "../../src/renderer/components/issue.js";
+import { AppComponent } from "../../src/renderer/components/app-component.js";
 import { createFileServiceMock, createCorrectionsServiceMock } from "../helpers/service-mocks.js";
 import { loadRendererTemplates, createTemplateFetch } from "../helpers/template-mocks.js";
 
@@ -101,6 +102,17 @@ describe("Component contract", () => {
           onApply: () => {},
           onDismiss: () => {},
           onIgnore: () => {}
+        }
+      },
+      {
+        name: "AppComponent",
+        Component: AppComponent,
+        template: "app-component.html",
+        args: {
+          mountEl,
+          window: dom.window,
+          fileService,
+          correctionsService
         }
       }
     ];
