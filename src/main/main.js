@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, protocol } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
@@ -13,6 +13,17 @@ FileOpsAPI.create(ipcMain);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "app",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true
+    }
+  }
+]);
+
 const debugPort = process.env.REMOTE_DEBUGGING_PORT ?? "9222";
 app.commandLine.appendSwitch("remote-debugging-port", debugPort);
 console.log(`Remote debugging enabled on port ${debugPort}`);
@@ -66,6 +77,19 @@ function createWindow() {
 app.whenReady().then(async () => {
   logStartup("App ready");
   app.setName("MudPad");
+  protocol.registerFileProtocol("app", (request, callback) => {
+    try {
+      const url = new URL(request.url);
+      if (url.hostname !== "local") {
+        callback({ error: -6 });
+        return;
+      }
+      const filePath = decodeURIComponent(url.pathname);
+      callback({ path: filePath });
+    } catch {
+      callback({ error: -6 });
+    }
+  });
   const cacheDir = path.join(app.getPath("userData"), "languagetool");
   languageToolChecker =  await LanguageToolChecker.create(cacheDir);
   createWindow();

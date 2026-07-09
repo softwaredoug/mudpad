@@ -199,14 +199,14 @@ export class EditorComponent {
       const repoBase = this.repoRoot.replace(/\\/g, "/");
       const repo = repoBase.endsWith("/") ? repoBase : `${repoBase}/`;
       const normalized = trimmed.replace(/^\/+/, "");
-      return `file://${repo}${normalized}`;
+      return `app://local${repo}${normalized}`;
     }
     if (!this.filePath) {
       return null;
     }
     const baseDir = dirname(this.filePath).replace(/\\/g, "/");
     const base = baseDir.endsWith("/") ? baseDir : `${baseDir}/`;
-    const fileBase = `file://${base}`;
+    const fileBase = `app://local${base}`;
     try {
       return new URL(trimmed, fileBase).href;
     } catch (error) {

@@ -211,7 +211,7 @@ test("AppComponent (e2e) editor", async (t) => {
     assert.equal(modal.classList.contains("hidden"), false);
     const previewImage = document.querySelector("#image-preview-image");
     assert.ok(previewImage);
-    assert.equal(previewImage.getAttribute("src"), "file:///tmp/posts/images/cat.png");
+    assert.equal(previewImage.getAttribute("src"), "app://local/tmp/posts/images/cat.png");
   });
 
   await t.test("hovering root image url uses repo root", async () => {
@@ -255,7 +255,7 @@ test("AppComponent (e2e) editor", async (t) => {
     assert.ok(previewImage);
     assert.equal(
       previewImage.getAttribute("src"),
-      "file:///tmp/site/assets/media/2026/write-code/image1.png"
+      "app://local/tmp/site/assets/media/2026/write-code/image1.png"
     );
   });
 });
