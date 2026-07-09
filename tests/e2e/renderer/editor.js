@@ -175,4 +175,42 @@ test("AppComponent (e2e) editor", async (t) => {
     assert.equal(app.fileService.saveImage.calls.length, 1);
     assert.ok(updatedEditor.textContent.includes("![](images/image2.png)"));
   });
+
+  await t.test("hovering image url opens preview modal", async () => {
+    app.fileService.readFile = async (path) => ({
+      path,
+      content: "![](images/cat.png)"
+    });
+    const selectButton = document.querySelector(".select-directory-button");
+    selectButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const editorRoot = document.querySelector(".cm-content[contenteditable='false']");
+    assert.ok(editorRoot);
+    editorRoot.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const view = app.editorComponent.editor.view;
+    const docText = view.state.doc.toString();
+    const imagePos = docText.indexOf("images/cat.png") + 2;
+    view.posAtCoords = () => imagePos;
+    view.contentDOM.dispatchEvent(new dom.window.MouseEvent("mouseover", {
+      bubbles: true,
+      clientX: 10,
+      clientY: 10
+    }));
+    view.contentDOM.dispatchEvent(new dom.window.MouseEvent("mousemove", {
+      bubbles: true,
+      clientX: 10,
+      clientY: 10
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const modal = document.querySelector("#image-preview-modal");
+    assert.ok(modal);
+    assert.equal(modal.classList.contains("hidden"), false);
+    const previewImage = document.querySelector("#image-preview-image");
+    assert.ok(previewImage);
+    assert.equal(previewImage.getAttribute("src"), "file:///tmp/posts/images/cat.png");
+  });
 });

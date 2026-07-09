@@ -7,6 +7,7 @@ import { DirectorySelector } from "./directory-selector.js";
 import { FileList } from "./file-list.js";
 import { CommitModal } from "../modals/commit-modal.js";
 import { RepoModal } from "../modals/repo-modal.js";
+import { ImagePreviewModal } from "../modals/image-preview-modal.js";
 
 export class AppComponent {
   constructor({
@@ -29,6 +30,7 @@ export class AppComponent {
     this.fileList = null;
     this.commitModal = null;
     this.repoModal = null;
+    this.imagePreviewModal = null;
     this.repoStatus = null;
     this.activeFilePath = null;
     this._bound = false;
@@ -69,6 +71,11 @@ export class AppComponent {
     });
 
     const mountEl = this.base.query("#editor-mount");
+    this.imagePreviewModal = new ImagePreviewModal({
+      mountEl: modalMount,
+      window: this.window
+    });
+
     this.editorComponent = await EditorComponent.create({
       mountEl,
       fileService: this.fileService,
@@ -76,7 +83,8 @@ export class AppComponent {
       onStatus: (message) => this.setStatus(statusLabel, message),
       onIssuesChanged: (issues) => this.issuesSidebar.render(issues),
       onFileChanged: (path) => this.setActiveFilePath(activeFileLabel, path),
-      onDisabledDblClick: () => this.fileList?.createNewFile()
+      onDisabledDblClick: () => this.fileList?.createNewFile(),
+      imagePreviewModal: this.imagePreviewModal
     });
 
     this.issuesSidebar.setIssueContext(this.editorComponent.getIssueContext());

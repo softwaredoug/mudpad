@@ -21,7 +21,8 @@ export class EditorComponent {
     onStatus,
     onIssuesChanged,
     onFileChanged,
-    onDisabledDblClick
+    onDisabledDblClick,
+    imagePreviewModal
   }) {
     this.base = new BaseComponent({
       mountEl,
@@ -33,6 +34,7 @@ export class EditorComponent {
     this.onIssuesChanged = onIssuesChanged ?? (() => {});
     this.onFileChanged = onFileChanged ?? (() => {});
     this.onDisabledDblClick = onDisabledDblClick ?? (() => {});
+    this.imagePreviewModal = imagePreviewModal ?? null;
     this.filePath = null;
     this.activeDirectory = null;
     this.originalText = "";
@@ -52,7 +54,8 @@ export class EditorComponent {
     onStatus,
     onIssuesChanged,
     onFileChanged,
-    onDisabledDblClick
+    onDisabledDblClick,
+    imagePreviewModal
   }) {
     const component = new EditorComponent({
       mountEl,
@@ -61,7 +64,8 @@ export class EditorComponent {
       onStatus,
       onIssuesChanged,
       onFileChanged,
-      onDisabledDblClick
+      onDisabledDblClick,
+      imagePreviewModal
     });
 
     await component.base.ensureReady();
@@ -71,7 +75,10 @@ export class EditorComponent {
       initialText: "",
       onChange: () => component.handleEditorChange(),
       issueContext: component.getIssueContext(),
-      onDisabledDblClick: () => component.handleDisabledDblClick()
+      onDisabledDblClick: () => component.handleDisabledDblClick(),
+      resolveImageUrl: (url) => component.resolveImageUrl(url),
+      onImagePreviewOpen: (payload) => component.openImagePreview(payload),
+      onImagePreviewClose: () => component.closeImagePreview()
     });
 
     component.editor.view.dom.addEventListener("paste", (event) =>
@@ -132,6 +139,7 @@ export class EditorComponent {
         return false;
       }
     }
+    this.closeImagePreview();
     // get base dir, set file path
 
     const result = await this.fileService.readFile(path);
@@ -155,7 +163,47 @@ export class EditorComponent {
     this.editor.setText("");
     this.setEditorDisabled(true);
     this.updateIssues([]);
+    this.closeImagePreview();
     this.onFileChanged(null);
+  }
+
+  openImagePreview(payload) {
+    if (!this.imagePreviewModal || !payload?.src) {
+      return;
+    }
+    const label = payload.raw ?? payload.src;
+    this.imagePreviewModal.open({ src: payload.src, label });
+  }
+
+  closeImagePreview() {
+    if (!this.imagePreviewModal) {
+      return;
+    }
+    if (this.imagePreviewModal.isOpen()) {
+      this.imagePreviewModal.close();
+    }
+  }
+
+  resolveImageUrl(rawUrl) {
+    const trimmed = (rawUrl ?? "").trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+      return trimmed;
+    }
+    if (!this.filePath) {
+      return null;
+    }
+    const baseDir = dirname(this.filePath).replace(/\\/g, "/");
+    const base = baseDir.endsWith("/") ? baseDir : `${baseDir}/`;
+    const fileBase = `file://${base}`;
+    try {
+      return new URL(trimmed, fileBase).href;
+    } catch (error) {
+      console.warn("Failed to resolve image url", error);
+      return null;
+    }
   }
 
   setEditorDisabled(isDisabled) {

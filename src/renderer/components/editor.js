@@ -140,12 +140,105 @@ function createIssuesTooltip({ issueContext } = {}) {
   });
 }
 
+const imageLinkPattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+
+function normalizeImageUrl(url) {
+  const trimmed = (url ?? "").trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function findImageUrlAtPos(view, pos) {
+  imageLinkPattern.lastIndex = 0;
+  const line = view.state.doc.lineAt(pos);
+  const text = line.text;
+  let match;
+  while ((match = imageLinkPattern.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const rawUrl = match[1];
+    const urlIndex = fullMatch.indexOf(rawUrl);
+    if (urlIndex === -1) {
+      continue;
+    }
+    const urlStart = line.from + match.index + urlIndex;
+    const urlEnd = urlStart + rawUrl.length;
+    if (pos >= urlStart && pos <= urlEnd) {
+      return {
+        url: normalizeImageUrl(rawUrl),
+        range: { start: urlStart, end: urlEnd }
+      };
+    }
+  }
+  return null;
+}
+
+function createImagePreviewHandlers({ resolveImageUrl, onPreviewOpen, onPreviewClose } = {}) {
+  let activePreview = null;
+  const clearPreview = () => {
+    if (!activePreview) {
+      return;
+    }
+    activePreview = null;
+    onPreviewClose?.();
+  };
+  return EditorView.domEventHandlers({
+    mousemove(event, view) {
+      if (!onPreviewOpen) {
+        return false;
+      }
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos == null) {
+        clearPreview();
+        return false;
+      }
+      const match = findImageUrlAtPos(view, pos);
+      if (!match?.url) {
+        clearPreview();
+        return false;
+      }
+      const resolved = resolveImageUrl ? resolveImageUrl(match.url) : match.url;
+      if (!resolved) {
+        clearPreview();
+        return false;
+      }
+      if (
+        activePreview
+        && activePreview.src === resolved
+        && activePreview.start === match.range.start
+        && activePreview.end === match.range.end
+      ) {
+        return false;
+      }
+      activePreview = {
+        src: resolved,
+        start: match.range.start,
+        end: match.range.end,
+        raw: match.url
+      };
+      onPreviewOpen({ src: resolved, raw: match.url });
+      return false;
+    },
+    mouseleave() {
+      clearPreview();
+      return false;
+    }
+  });
+}
+
 export function createEditor({
   parent,
   initialText,
   onChange,
   issueContext,
-  onDisabledDblClick
+  onDisabledDblClick,
+  resolveImageUrl,
+  onImagePreviewOpen,
+  onImagePreviewClose
 }) {
   const editableCompartment = new Compartment();
   const placeholderCompartment = new Compartment();
@@ -166,6 +259,11 @@ export function createEditor({
       issuesState,
       hoverSuppressedState,
       createIssuesTooltip({ issueContext }),
+      createImagePreviewHandlers({
+        resolveImageUrl,
+        onPreviewOpen: onImagePreviewOpen,
+        onPreviewClose: onImagePreviewClose
+      }),
       editableCompartment.of(EditorView.editable.of(true)),
       placeholderCompartment.of([]),
       EditorView.updateListener.of((update) => {
