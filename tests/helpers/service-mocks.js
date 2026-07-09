@@ -63,6 +63,9 @@ export function createFileServiceMock(overrides = {}) {
     async saveFile() {
       return { ok: true };
     },
+    async saveAndCommit() {
+      return { ok: true };
+    },
     async getGitSyncStatus() {
       return { available: false };
     },

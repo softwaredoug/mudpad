@@ -10,7 +10,7 @@
     "build": "vite build",
     "start": "electron .",
     "test": "node --test tests/unit/*.test.js tests/e2e/*.test.js tests/e2e/renderer/*.js",
-    "debug-test": "node inspect --test",
+    "debug-test": "NODE_INSPECT_RESUME_ON_START=1 node inspect --test --test-concurrency=1",
     "languagetool": "node scripts/launch-languagetool.js",
     "prepare:languagetool": "node scripts/prepare-languagetool.js",
     "package": "npm run build && npm run prepare:languagetool && electron-builder --dir",
