@@ -13,28 +13,28 @@ export class FileOpsAPI {
       api.listTextFilesInWorker(payload)
     );
 
-    ipcMain.handle("read-file", async (_event, filePath) => fileOps.readFile(filePath));
+    ipcMain.handle("read-file", async (_event, filePath) => api.readFile(filePath));
 
-    ipcMain.handle("save-file", async (_event, payload) => fileOps.saveFile(payload));
+    ipcMain.handle("save-file", async (_event, payload) => api.saveFile(payload));
 
     ipcMain.handle("create-new-file", async (_event, directory) =>
-      fileOps.createNewFile(directory)
+      api.createNewFile(directory)
     );
 
-    ipcMain.handle("create-folder", async (_event, payload) => fileOps.createFolder(payload));
+    ipcMain.handle("create-folder", async (_event, payload) => api.createFolder(payload));
 
-    ipcMain.handle("rename-file", async (_event, payload) => fileOps.renameFile(payload));
+    ipcMain.handle("rename-file", async (_event, payload) => api.renameFile(payload));
 
-    ipcMain.handle("delete-file", async (_event, payload) => fileOps.deleteFile(payload));
+    ipcMain.handle("delete-file", async (_event, payload) => api.deleteFile(payload));
 
-    ipcMain.handle("save-and-commit", async (_event, payload) => fileOps.saveAndCommit(payload));
+    ipcMain.handle("save-and-commit", async (_event, payload) => api.saveAndCommit(payload));
 
     ipcMain.handle("get-git-sync-status", async (_event, directory) =>
-      fileOps.getGitStatus(directory, { fetch: true })
+      api.getGitStatus(directory, { fetch: true })
     );
 
     ipcMain.handle("sync-with-origin", async (_event, directory) =>
-      fileOps.syncWithOrigin(directory)
+      api.syncWithOrigin(directory)
     );
 
     return api;
@@ -62,5 +62,45 @@ export class FileOpsAPI {
         }
       });
     });
+  }
+
+  async listTextFiles(payload) {
+    return fileOps.listTextFiles(payload);
+  }
+
+  async readFile(filePath) {
+    return fileOps.readFile(filePath);
+  }
+
+  async saveFile(payload) {
+    return fileOps.saveFile(payload);
+  }
+
+  async createNewFile(directory, options) {
+    return fileOps.createNewFile(directory, options);
+  }
+
+  async createFolder(payload) {
+    return fileOps.createFolder(payload);
+  }
+
+  async renameFile(payload) {
+    return fileOps.renameFile(payload);
+  }
+
+  async deleteFile(payload) {
+    return fileOps.deleteFile(payload);
+  }
+
+  async saveAndCommit(payload) {
+    return fileOps.saveAndCommit(payload);
+  }
+
+  async getGitStatus(directory, options) {
+    return fileOps.getGitStatus(directory, options);
+  }
+
+  async syncWithOrigin(directory) {
+    return fileOps.syncWithOrigin(directory);
   }
 }
