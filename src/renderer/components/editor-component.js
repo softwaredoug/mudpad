@@ -74,6 +74,19 @@ export class EditorComponent {
       onDisabledDblClick: () => component.handleDisabledDblClick()
     });
 
+    component.editor.view.dom.addEventListener("paste", (event) =>
+      component.handlePaste(event),
+      true
+    );
+    component.editor.view.dom.addEventListener("dragover", (event) =>
+      component.handleDragOver(event),
+      true
+    );
+    component.editor.view.dom.addEventListener("drop", (event) =>
+      component.handleDrop(event),
+      true
+    );
+
     component.setEditorDisabled(true);
 
     await component.ensureReady();
@@ -163,6 +176,111 @@ export class EditorComponent {
       return;
     }
     this.onDisabledDblClick();
+  }
+
+  handleDragOver(event) {
+    if (this.hasImageDrag(event?.dataTransfer?.files)) {
+      event.preventDefault();
+    }
+  }
+
+  async handlePaste(event) {
+    const imageFile = this.getImageFromClipboard(event?.clipboardData);
+    if (!imageFile) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await this.saveImageAndInsert(imageFile);
+  }
+
+  async handleDrop(event) {
+    const imageFile = this.getImageFromDrop(event?.dataTransfer?.files);
+    if (!imageFile) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await this.saveImageAndInsert(imageFile);
+  }
+
+  getImageFromClipboard(clipboardData) {
+    const items = clipboardData?.items ? Array.from(clipboardData.items) : [];
+    for (const item of items) {
+      if (item?.type?.startsWith("image/")) {
+        return item.getAsFile?.() ?? null;
+      }
+    }
+    return null;
+  }
+
+  getImageFromDrop(files) {
+    const list = files ? Array.from(files) : [];
+    for (const file of list) {
+      if (file?.type?.startsWith("image/")) {
+        return file;
+      }
+    }
+    return null;
+  }
+
+  hasImageDrag(files) {
+    const list = files ? Array.from(files) : [];
+    return list.some((file) => file?.type?.startsWith("image/"));
+  }
+
+  async saveImageAndInsert(file) {
+    if (!this.filePath) {
+      this.onStatus("Select a file to insert an image.");
+      return;
+    }
+
+    const payload = await this.buildImagePayload(file);
+    if (!payload) {
+      return;
+    }
+
+    const result = await this.fileService.saveImage({
+      filePath: this.filePath,
+      ...payload
+    });
+    if (result?.error) {
+      this.onStatus(result.error);
+      return;
+    }
+    if (result?.relativePath) {
+      this.editor.insertTextAtCursor(`![](${result.relativePath})`);
+    }
+  }
+
+  async buildImagePayload(file) {
+    if (!file) {
+      return null;
+    }
+
+    if (file.path) {
+      return { sourcePath: file.path };
+    }
+
+    const buffer = file.arrayBuffer ? await file.arrayBuffer() : null;
+    if (!buffer) {
+      return null;
+    }
+
+    const extension = this.getFileExtension(file.name);
+    return {
+      buffer: new Uint8Array(buffer),
+      extension,
+      mimeType: file.type
+    };
+  }
+
+  getFileExtension(name) {
+    if (!name || !name.includes(".")) {
+      return null;
+    }
+    const ext = name.split(".").pop();
+    return ext ? ext.toLowerCase() : null;
   }
 
   async saveIfDirty() {

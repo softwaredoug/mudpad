@@ -95,4 +95,84 @@ test("AppComponent (e2e) editor", async (t) => {
 
     assert.equal(updatedEditor.textContent, "New file content!");
   });
+
+  await t.test("pasting an image saves it and inserts markdown", async () => {
+    app.fileService.saveImage = async (...args) => {
+      app.fileService.saveImage.calls.push(args);
+      return { relativePath: "images/image1.png" };
+    };
+    app.fileService.saveImage.calls = [];
+    const selectButton = document.querySelector(".select-directory-button");
+    selectButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const editorRoot = document.querySelector(".cm-content[contenteditable='false']");
+    assert.ok(editorRoot);
+    editorRoot.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const updatedEditor = document.querySelector(".cm-content");
+    const mockFile = {
+      name: "paste.png",
+      type: "image/png",
+      arrayBuffer: async () => new ArrayBuffer(4)
+    };
+    const pasteEvent = new dom.window.Event("paste", { bubbles: true });
+    pasteEvent.clipboardData = {
+      getData: () => "",
+      items: [
+        {
+          type: "image/png",
+          getAsFile: () => mockFile
+        }
+      ]
+    };
+    updatedEditor.dispatchEvent(pasteEvent);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(app.fileService.saveImage.calls.length, 1);
+    assert.ok(updatedEditor.textContent.includes("![](images/image1.png)"));
+  });
+
+  await t.test("dropping an image saves it and inserts markdown", async () => {
+    app.fileService.saveImage = async (...args) => {
+      app.fileService.saveImage.calls.push(args);
+      return { relativePath: "images/image2.png" };
+    };
+    app.fileService.saveImage.calls = [];
+    const selectButton = document.querySelector(".select-directory-button");
+    selectButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const editorRoot = document.querySelector(".cm-content[contenteditable='false']");
+    assert.ok(editorRoot);
+    editorRoot.dispatchEvent(new dom.window.MouseEvent("dblclick", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const updatedEditor = document.querySelector(".cm-content");
+    dom.window.FileReader = class {
+      readAsText() {
+        if (this.onload) {
+          this.onload({ target: { result: "" } });
+        }
+      }
+    };
+    global.FileReader = dom.window.FileReader;
+    const dropEvent = new dom.window.Event("drop", { bubbles: true });
+    dropEvent.dataTransfer = {
+      getData: () => "",
+      files: [
+        {
+          path: "/tmp/drop.png",
+          name: "drop.png",
+          type: "image/png"
+        }
+      ]
+    };
+    updatedEditor.dispatchEvent(dropEvent);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(app.fileService.saveImage.calls.length, 1);
+    assert.ok(updatedEditor.textContent.includes("![](images/image2.png)"));
+  });
 });

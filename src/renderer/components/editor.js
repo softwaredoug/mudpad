@@ -207,6 +207,15 @@ export function createEditor({
       });
       view.focus();
     },
+    insertTextAtCursor: (text) => {
+      const selection = view.state.selection.main;
+      const insertText = text ?? "";
+      view.dispatch({
+        changes: { from: selection.from, to: selection.to, insert: insertText },
+        selection: { anchor: selection.from + insertText.length }
+      });
+      view.focus();
+    },
     replaceRange: (from, to, insert) => {
       view.dispatch({
         changes: { from, to, insert }
