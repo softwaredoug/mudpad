@@ -73,3 +73,7 @@ When you're asked to make a functional change, follow a TDD flow:
 ## Co-authoring
 
 A human being may have working changes in this repo. Don't overwrite those working changes without asking.
+
+## Brevity
+
+Keep it brief and don't be too chatty as we're paying you by the token :)
