@@ -13,18 +13,35 @@ async function exists(filePath) {
 export async function resolveJavaCommand({
   resourcesPath = process.resourcesPath,
   platform = process.platform,
-  arch = process.arch
+  arch = process.arch,
+  developmentResourcesPath = resolveDevelopmentResourcesPath()
 } = {}) {
-  const bundledJava = resolveBundledJava(resourcesPath, platform, arch);
-  if (bundledJava && await exists(bundledJava)) {
-    return bundledJava;
+  const resourcePaths = [resourcesPath, developmentResourcesPath]
+    .filter(Boolean)
+    .filter((candidate, index, paths) => paths.indexOf(candidate) === index);
+  for (const candidate of resourcePaths) {
+    const bundledJava = resolveBundledJava(candidate, platform, arch);
+    if (bundledJava && await exists(bundledJava)) {
+      return bundledJava;
+    }
   }
 
+  const expectedPaths = resourcePaths
+    .map((candidate) => resolveBundledJava(candidate, platform, arch))
+    .filter(Boolean)
+    .join(" or ");
   const error = new Error(
-    `Bundled Java runtime not found${bundledJava ? ` at ${bundledJava}` : "."}`
+    `Bundled Java runtime not found${expectedPaths ? ` at ${expectedPaths}` : "."}`
   );
   error.code = "BUNDLED_JAVA_MISSING";
   throw error;
+}
+
+function resolveDevelopmentResourcesPath() {
+  if (!process.defaultApp && !process.env.VITE_DEV_SERVER_URL) {
+    return null;
+  }
+  return path.join(process.cwd(), "resources");
 }
 
 export function resolveBundledJava(resourcesPath, platform = process.platform, arch = process.arch) {

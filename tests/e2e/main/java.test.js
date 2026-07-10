@@ -29,6 +29,18 @@ test("bundled Java resolution", async (t) => {
     );
   });
 
+  await t.test("resolves the repository JRE during development", async () => {
+    assert.equal(
+      await resolveJavaCommand({
+        resourcesPath: path.join(tempDir, "electron-resources"),
+        developmentResourcesPath: tempDir,
+        platform: "darwin",
+        arch: "arm64"
+      }),
+      bundledJava
+    );
+  });
+
   await t.test("does not resolve a bundled Java executable on unsupported platforms", () => {
     assert.equal(resolveBundledJava(tempDir, "linux", "arm64"), null);
     assert.equal(resolveBundledJava(tempDir, "darwin", "ia32"), null);

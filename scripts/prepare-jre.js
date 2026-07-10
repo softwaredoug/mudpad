@@ -39,6 +39,7 @@ const modules = [
   "java.transaction.xa",
   "java.xml",
   "jdk.crypto.ec",
+  "jdk.httpserver",
   "jdk.unsupported"
 ].join(",");
 
