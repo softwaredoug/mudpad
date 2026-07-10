@@ -10,67 +10,30 @@ async function exists(filePath) {
   }
 }
 
-async function findAsdfJava(installsDir) {
-  if (!(await exists(installsDir))) {
-    return null;
+export async function resolveJavaCommand({
+  resourcesPath = process.resourcesPath,
+  platform = process.platform,
+  arch = process.arch
+} = {}) {
+  const bundledJava = resolveBundledJava(resourcesPath, platform, arch);
+  if (bundledJava && await exists(bundledJava)) {
+    return bundledJava;
   }
 
-  const entries = await fs.readdir(installsDir, { withFileTypes: true });
-  const versions = entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .reverse();
-
-  for (const version of versions) {
-    const candidate = path.join(installsDir, version, "bin", "java");
-    if (await exists(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
+  const error = new Error(
+    `Bundled Java runtime not found${bundledJava ? ` at ${bundledJava}` : "."}`
+  );
+  error.code = "BUNDLED_JAVA_MISSING";
+  throw error;
 }
 
-export async function resolveJavaCommand() {
-  const explicitJava = process.env.LANGUAGETOOL_JAVA;
-  if (explicitJava && (await exists(explicitJava))) {
-    return explicitJava;
+export function resolveBundledJava(resourcesPath, platform = process.platform, arch = process.arch) {
+  if (!resourcesPath || platform !== "darwin") {
+    return null;
   }
-
-  const javaHome = process.env.JAVA_HOME;
-  if (javaHome) {
-    const javaBin = path.join(javaHome, "bin", "java");
-    if (await exists(javaBin)) {
-      return javaBin;
-    }
+  const bundledArch = arch === "arm64" ? "arm64" : arch === "x64" ? "x64" : null;
+  if (!bundledArch) {
+    return null;
   }
-
-  if (process.platform === "darwin") {
-    try {
-      const { execFile } = await import("child_process");
-      const { promisify } = await import("util");
-      const execFileAsync = promisify(execFile);
-      const { stdout } = await execFileAsync("/usr/libexec/java_home");
-      const resolvedHome = stdout.trim();
-      if (resolvedHome) {
-        const javaBin = path.join(resolvedHome, "bin", "java");
-        if (await exists(javaBin)) {
-          return javaBin;
-        }
-      }
-    } catch {
-      // Fall through to PATH lookup.
-    }
-  }
-
-  const homeDir = process.env.HOME;
-  if (homeDir) {
-    const asdfJava = await findAsdfJava(path.join(homeDir, ".asdf", "installs", "java"));
-    if (asdfJava) {
-      return asdfJava;
-    }
-  }
-
-  return "java";
+  return path.join(resourcesPath, "jre", bundledArch, "bin", "java");
 }

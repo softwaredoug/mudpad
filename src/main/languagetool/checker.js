@@ -100,9 +100,10 @@ async function startLanguageToolService(cacheDir) {
     const message = `Failed to start LanguageTool: ${error.message}`;
     console.error(message);
     showLanguageToolError(
-      "LanguageTool failed to start",
+      error?.code === "BUNDLED_JAVA_MISSING" ? "Bundled Java unavailable" : "LanguageTool failed to start",
       error.message
     );
+    throw error;
   }
 }
 
@@ -113,16 +114,18 @@ function showLanguageToolError(title, details, diagnostics) {
 }
 
 export class LanguageToolChecker {
-  constructor(port, process) {
+  constructor(port, process, diagnostics) {
     this.port = port
     this.url = `http://localhost:${port}/v2/check`;
     this.languageToolError = null;
     this.process = process;
+    this.diagnostics = diagnostics;
   }
 
   static async create(cacheDir) {
-    const { port, process } = await startLanguageToolService(cacheDir);
-    return new LanguageToolChecker(port, process);
+    const { port, process, diagnostics } = await startLanguageToolService(cacheDir);
+    console.log(`LanguageTool ready (Java: ${diagnostics?.javaCommand ?? "unknown"})`);
+    return new LanguageToolChecker(port, process, diagnostics);
   }
 
   async kill() {

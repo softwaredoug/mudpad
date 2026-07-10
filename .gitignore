@@ -3,6 +3,7 @@ dist/
 release/
 .languagetool/
 resources/languagetool/
+resources/jre/
 coverage/
 .cache/
 .eslintcache

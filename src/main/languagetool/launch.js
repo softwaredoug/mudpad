@@ -133,6 +133,9 @@ export async function startLanguageTool({
   try {
     await spawnAttempt({ forceRedownload: false });
   } catch (error) {
+    if (error?.code === "BUNDLED_JAVA_MISSING") {
+      throw error;
+    }
     if (!retried) {
       retried = true;
       if (onRedownload) {

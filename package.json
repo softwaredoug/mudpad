@@ -13,8 +13,9 @@
     "debug-test": "NODE_INSPECT_RESUME_ON_START=1 node inspect --test --test-concurrency=1",
     "languagetool": "node scripts/launch-languagetool.js",
     "prepare:languagetool": "node scripts/prepare-languagetool.js",
-    "package": "npm run build && npm run prepare:languagetool && electron-builder --dir",
-    "dist": "npm run build && npm run prepare:languagetool && electron-builder",
+    "prepare:jre": "node scripts/prepare-jre.js",
+    "package": "npm run build && npm run prepare:languagetool && npm run prepare:jre && electron-builder --dir",
+    "dist": "npm run build && npm run prepare:languagetool && npm run prepare:jre && electron-builder",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
@@ -58,6 +59,13 @@
       {
         "from": "resources/languagetool",
         "to": "languagetool",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/jre",
+        "to": "jre",
         "filter": [
           "**/*"
         ]
